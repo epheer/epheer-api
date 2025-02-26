@@ -4,7 +4,8 @@ const helmet = require("helmet");
 const xss = require("xss-clean");
 const mongoSanitize = require("express-mongo-sanitize");
 const cors = require("cors");
-// const routes = require("./routes");
+const router = require("./routes");
+const errorMiddleware = require("./middlewares/error.middleware");
 require("dotenv").config();
 
 const app = express();
@@ -26,13 +27,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(xss());
 app.use(mongoSanitize({ allowDots: true }));
+app.use("/", router);
+app.use(errorMiddleware);
 
 mongoose
   .connect(process.env.MONGO_URL)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error(err));
-
-// app.use("/", routes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

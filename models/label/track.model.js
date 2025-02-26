@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const TrackSchema = new mongoose.Schema({
   release: {
-    type: Schema.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: "Release",
     required: true,
   },

@@ -9,16 +9,6 @@ const HTTP_STATUS = {
   INTERNAL_SERVER_ERROR: 500,
 };
 
-const handleError = (
-  res,
-  message,
-  statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR
-) => {
-  console.error(message);
-  return res.status(statusCode).json({ message });
-};
-
 module.exports = {
   HTTP_STATUS,
-  handleError,
 };
