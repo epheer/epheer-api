@@ -1,45 +1,53 @@
 const ApiError = require("../exceptions/api-error");
 const { User, Release, Artist } = require("../models");
 
+// Проверка доступа для root
 const checkRootAccess = (role) => {
   if (role !== "root") {
     throw new Error("Доступ запрещен: ресурс доступен только управляющим.");
   }
 };
 
+// Проверка доступа для менеджера
 const checkManagerAccess = async (id, role, req) => {
   if (role === "root") return;
 
   if (role !== "manager") {
     throw new Error("Доступ запрещен: ресурс доступен только менеджерам.");
-  } else {
-    const resourceOwnerId = req.params.id;
-    if (id !== resourceOwnerId) {
-      throw new Error(
-        "Доступ запрещен: вы не можете получить доступ к этому ресурсу."
-      );
-    }
+  }
+
+  const resourceOwnerIds = req.params.ids
+    ? req.params.ids.split(",")
+    : [req.params.id];
+
+  if (!resourceOwnerIds.includes(id)) {
+    throw new Error(
+      "Доступ запрещен: вы не можете получить доступ к этому ресурсу."
+    );
   }
 };
 
+// Проверка доступа для артиста
 const checkArtistAccess = async (id, role, req) => {
   if (role === "root") return;
 
   if (role !== "artist") {
     throw new Error("Доступ запрещен: ресурс доступен только артистам.");
-  } else {
-    const resourceOwnerId = req.params.id;
-    if (id !== resourceOwnerId) {
-      throw new Error(
-        "Доступ запрещен: вы не можете получить доступ к этому ресурсу."
-      );
-    }
+  }
+
+  const resourceOwnerIds = req.params.ids
+    ? req.params.ids.split(",")
+    : [req.params.id];
+
+  if (!resourceOwnerIds.includes(id)) {
+    throw new Error(
+      "Доступ запрещен: вы не можете получить доступ к этому ресурсу."
+    );
   }
 };
 
+// Проверка доступа для лейбла
 const checkLabelAccess = async (id, role, req) => {
-  const resourceOwnerId = req.params.id;
-
   if (role === "root") return;
 
   if (!["artist", "manager"].includes(role)) {
@@ -48,39 +56,46 @@ const checkLabelAccess = async (id, role, req) => {
     );
   }
 
-  const resourceOwner = await User.findById(resourceOwnerId).select("role");
+  const resourceOwnerIds = req.params.ids
+    ? req.params.ids.split(",")
+    : [req.params.id];
 
-  if (!resourceOwner) {
-    const release = await Release.findById(resourceOwnerId).select("artist");
-    if (!release) {
-      throw new Error("Владелец ресурса не найден.");
-    }
-    const releaseOwnerId = release.artist.user_id;
-    await checkArtistResourceAccess(id, role, releaseOwnerId);
-  } else {
-    const ownerRole = resourceOwner.role;
-    switch (ownerRole) {
-      case "artist":
-        await checkArtistResourceAccess(id, role, resourceOwnerId);
-        break;
+  for (const resourceOwnerId of resourceOwnerIds) {
+    const resourceOwner = await User.findById(resourceOwnerId).select("role");
 
-      case "manager":
-        await checkManagerResourceAccess(id, role, resourceOwnerId);
-        break;
+    if (!resourceOwner) {
+      const release = await Release.findById(resourceOwnerId).select("artist");
+      if (!release) {
+        throw new Error("Владелец ресурса не найден.");
+      }
+      const releaseOwnerId = release.artist.user_id;
+      await checkArtistResourceAccess(id, role, releaseOwnerId);
+    } else {
+      const ownerRole = resourceOwner.role;
+      switch (ownerRole) {
+        case "artist":
+          await checkArtistResourceAccess(id, role, resourceOwnerId);
+          break;
 
-      default:
-        throw new Error("Доступ запрещен: некорректный владелец ресурса.");
+        case "manager":
+          await checkManagerResourceAccess(id, role, resourceOwnerId);
+          break;
+
+        default:
+          throw new Error("Доступ запрещен: некорректный владелец ресурса.");
+      }
     }
   }
 };
 
+// Проверка доступа к ресурсу артиста
 const checkArtistResourceAccess = async (id, role, resourceOwnerId) => {
   if (role === "artist") {
     if (id !== resourceOwnerId) {
       throw new Error("Вы не можете получить доступ к другому артисту.");
     }
   } else if (role === "manager") {
-    const artist = await Artist.findByOne({ user: resourceOwnerId });
+    const artist = await Artist.findOne({ user: resourceOwnerId });
     if (!artist || artist.manager.toString() !== id) {
       throw new Error(
         "Ошибка доступа: вы не можете получить информацию по запрашиваемому артисту."
@@ -89,6 +104,7 @@ const checkArtistResourceAccess = async (id, role, resourceOwnerId) => {
   }
 };
 
+// Проверка доступа к ресурсу менеджера
 const checkManagerResourceAccess = async (id, role, resourceOwnerId) => {
   if (role === "manager") {
     if (id !== resourceOwnerId) {
@@ -104,14 +120,20 @@ const checkManagerResourceAccess = async (id, role, resourceOwnerId) => {
   }
 };
 
+// Проверка персонального доступа
 const checkPersonalAccess = (id, role, req) => {
-  const resourceOwnerId = req.params.id;
   if (role === "root") return;
-  if (id !== resourceOwnerId) {
+
+  const resourceOwnerIds = req.params.ids
+    ? req.params.ids.split(",")
+    : [req.params.id];
+
+  if (!resourceOwnerIds.includes(id)) {
     throw new Error("Доступ запрещен: вы не имеете прав на этот ресурс.");
   }
 };
 
+// Основной middleware
 const access = (requiredRole) => {
   return async (req, res, next) => {
     try {
@@ -136,9 +158,10 @@ const access = (requiredRole) => {
         default:
           throw ApiError.BadRequest("Некорректный уровень доступа");
       }
+
       next();
     } catch (err) {
-      throw ApiError.UnauthorizedError(err.message);
+      next(ApiError.UnauthorizedError(err.message));
     }
   };
 };

@@ -5,8 +5,8 @@ const access = require("../../../middlewares/access.middleware");
 
 const router = express.Router();
 
-router.patch("/info/:id", auth, access("personal"), controller.updateInfo);
-router.get("/info/:ids", auth, access("label"), controller.getUsersByIds);
+router.patch("/:id", auth, access("personal"), controller.updateInfo);
+router.get("/:ids", auth, access("label"), controller.getUsersByIds);
 router.get("/", auth, access("root"), controller.getAllUsers);
 
 module.exports = router;

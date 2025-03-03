@@ -1,31 +1,26 @@
 const { Info } = require("../../models");
-const { InfoDto, FullInfoDto } = require("../../dtos/info.dto");
+const { InfoDto, FullInfoDto } = require("../../dtos/users/info.dto");
 const ApiError = require("../../exceptions/api-error");
 
 class InfoService {
   async updateInfo(userId, data) {
-    const info = await Info.findOne({ user: userId });
     const allowedFields = ["surname", "firstname", "patronymic", "contact"];
 
-    if (!info && (!data.surname || !data.firstname)) {
-      throw new ApiError.BadRequest("Отстутствуют обязательные поля");
+    if (!data.surname || !data.firstname) {
+      throw new ApiError.BadRequest("Отсутствуют обязательные поля");
     }
 
-    const updateFields = (target, source) => {
-      allowedFields.forEach((field) => {
-        if (source[field] !== undefined) {
-          target[field] = source[field];
-        }
-      });
-    };
+    let info = await Info.findOne({ user: userId });
 
     if (info) {
-      updateFields(info, data);
+      allowedFields.forEach((field) => {
+        if (data[field] !== undefined) {
+          info[field] = data[field];
+        }
+      });
       await info.save();
-
-      return new InfoDto(info).toJSON();
     } else {
-      const newInfo = await Info.create({
+      info = await Info.create({
         user: userId,
         ...allowedFields.reduce((acc, field) => {
           if (data[field] !== undefined) {
@@ -34,9 +29,9 @@ class InfoService {
           return acc;
         }, {}),
       });
-
-      return new InfoDto(newInfo).toJSON();
     }
+
+    return new InfoDto(info);
   }
 
   async getUsersByIds(userIds) {
@@ -47,16 +42,14 @@ class InfoService {
     }
 
     const infos = await Info.find({ user: { $in: userIds } })
-      .populate("user", "login email role is_active createdAt")
+      .populate("user", "-hash")
       .exec();
 
     if (infos.length === 0) {
       throw new ApiError.NotFoundError("Информация о пользователях не найдена");
     }
 
-    const result = infos.map((info) => new FullInfoDto(info));
-
-    return result;
+    return infos.map((info) => new FullInfoDto(info));
   }
 
   async getAllUsers(filterOptions, sortOptions, searchQuery, page, limit) {
@@ -73,15 +66,14 @@ class InfoService {
       filter["user.role"] = filterOptions.role;
     }
 
-    const searchFields = [
-      { "user.login": searchRegex },
-      { "user.email": searchRegex },
-      { surname: searchRegex },
-      { firstname: searchRegex },
-      { contact: searchRegex },
-    ];
     if (searchQuery) {
-      filter.$or = searchFields;
+      filter.$or = [
+        { "user.login": searchRegex },
+        { "user.email": searchRegex },
+        { surname: searchRegex },
+        { firstname: searchRegex },
+        { contact: searchRegex },
+      ];
     }
 
     const sort = {};
@@ -95,7 +87,7 @@ class InfoService {
     const skip = (page - 1) * limit;
 
     const infos = await Info.find(filter)
-      .populate("user", "login email role is_active createdAt")
+      .populate("user", "-hash")
       .sort(sort)
       .skip(skip)
       .limit(limit)
@@ -105,13 +97,11 @@ class InfoService {
       throw new ApiError.NotFoundError("Информация о пользователях не найдена");
     }
 
-    const result = infos.map((info) => new FullInfoDto(info));
-
     const total = await Info.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: result,
+      data: infos.map((info) => new FullInfoDto(info)),
       pagination: {
         total,
         totalPages,
