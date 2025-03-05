@@ -1,4 +1,4 @@
-const releaseMediaService = require("../../services/release-media-service");
+const releaseMediaService = require("../../services/label/media.service");
 const { HTTP_STATUS } = require("../../config/http-statuses");
 
 class MediaController {

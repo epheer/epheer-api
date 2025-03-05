@@ -5,6 +5,8 @@ const routes = [
   { path: "/auth", route: require("./users/auth.routes") },
   { path: "/users", route: require("./users/info.routes") },
   { path: "/artists", route: require("./label/artist.routes") },
+  { path: "/managers", route: require("./label/manager.routes") },
+  { path: "/media", route: require("./label/media.routes") },
 ];
 
 routes.forEach(({ path, route }) => {

@@ -1,5 +1,5 @@
 const express = require("express");
-const controller = require("../../../controllers/release-media.controller");
+const controller = require("../../../controllers/label/media.controller");
 const auth = require("../../../middlewares/auth.middleware");
 const access = require("../../../middlewares/access.middleware");
 const multer = require("multer");
