@@ -28,5 +28,6 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
-  }
+  },
+  "repository": "git@github.com:epheer/epheer-api.git"
 }

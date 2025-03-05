@@ -1,5 +1,5 @@
 const artistService = require("../../services/label/artist.service");
-const { HTTP_STATUS } = require("../../config/http-status");
+const { HTTP_STATUS } = require("../../config/http-statuses");
 
 class ArtistController {
   async updateStageName(req, res, next) {

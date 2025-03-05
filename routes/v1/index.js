@@ -3,8 +3,8 @@ const router = express.Router();
 
 const routes = [
   { path: "/auth", route: require("./users/auth.routes") },
-  { path: "/user", route: require("./users/info.routes") },
-  { path: "/artist", route: require("./label/artist.routes") },
+  { path: "/users", route: require("./users/info.routes") },
+  { path: "/artists", route: require("./label/artist.routes") },
 ];
 
 routes.forEach(({ path, route }) => {

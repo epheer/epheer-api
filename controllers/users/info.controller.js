@@ -1,4 +1,4 @@
-const infoService = require("../../services/info/info.service");
+const infoService = require("../../services/users/info.service");
 const { HTTP_STATUS } = require("../../config/http-statuses");
 
 class InfoController {
