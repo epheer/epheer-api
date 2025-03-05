@@ -6,7 +6,14 @@ const StatusSchema = new Schema(
     label: {
       type: String,
       required: true,
-      enum: ["draft", "pending", "approved", "delivered", "rejected"],
+      enum: [
+        "draft",
+        "pending",
+        "approved",
+        "rejected",
+        "delivered",
+        "finalized",
+      ],
     },
     message: {
       type: String,
@@ -15,29 +22,36 @@ const StatusSchema = new Schema(
   { timestamps: true }
 );
 
-const HistorySchema = new Schema({
-  editor: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-  status: {
-    type: StatusSchema,
-    required: true,
-  },
-});
-
 const CurrentStatusSchema = new Schema(
   {
     label: {
       type: String,
       required: true,
-      enum: ["draft", "pending", "approved", "rejected"],
+      enum: [
+        "draft",
+        "pending",
+        "approved",
+        "rejected",
+        "delivered",
+        "finalized",
+      ],
     },
     message: {
       type: String,
     },
-    history: [HistorySchema],
+    history: [
+      {
+        editor: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        status: {
+          type: StatusSchema,
+          required: true,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );
@@ -57,16 +71,13 @@ const ReleaseSchema = new Schema(
     },
     name: {
       type: String,
-      required: true,
     },
     type: {
       type: String,
-      required: true,
       enum: ["single", "ep", "album"],
     },
     date: {
       type: Date,
-      required: true,
     },
     cover_key: {
       type: String,
@@ -106,5 +117,12 @@ const ReleaseSchema = new Schema(
     timestamps: true,
   }
 );
+
+ReleaseSchema.virtual("tracks", {
+  ref: "Track",
+  localField: "_id",
+  foreignField: "release",
+  justOne: false,
+});
 
 module.exports = mongoose.model("Release", ReleaseSchema);
