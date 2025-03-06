@@ -11,7 +11,7 @@ const {
   validateImageFile,
 } = require("../../validators/media.validator");
 
-class ReleaseMediaService {
+class MediaService {
   async uploadCover(artistId, releaseId, fileBuffer) {
     if (!(await validateImageFile(fileBuffer))) {
       throw new ApiError.BadRequest("Недопустимый формат или размер обложки.");
@@ -44,11 +44,12 @@ class ReleaseMediaService {
     fileBufferOrStream,
     fileType
   ) {
+    const { parseBuffer } = await import("music-metadata");
+
     if (!["wav", "flac"].includes(fileType)) {
       throw new ApiError.BadRequest("Недопустимый формат файла трека.");
     }
 
-    // Преобразуем поток в буфер, если это поток
     let fileBuffer;
     if (fileBufferOrStream instanceof Buffer) {
       fileBuffer = fileBufferOrStream;
@@ -60,10 +61,24 @@ class ReleaseMediaService {
       throw new ApiError.BadRequest("Недопустимые параметры аудиофайла.");
     }
 
+    let duration;
+    try {
+      const metadata = await parseBuffer(fileBuffer, { skipCovers: true });
+      duration = metadata.format.duration;
+    } catch (err) {
+      throw new ApiError.BadRequest(
+        "Не удалось определить длительность трека."
+      );
+    }
+
     const trackFileName = `${trackOrder}-${trackTitle}.${fileType}`;
     const trackKey = `artists/${artistId}/releases/${releaseId}/tracks/${trackFileName}`;
 
     await uploadFile(trackKey, fileBuffer, `audio/${fileType}`);
+    return {
+      key: trackFileName,
+      duration: duration,
+    };
   }
 
   async getCover(artistId, releaseId, size = "original") {
@@ -152,4 +167,4 @@ class ReleaseMediaService {
   }
 }
 
-module.exports = new ReleaseMediaService();
+module.exports = new MediaService();

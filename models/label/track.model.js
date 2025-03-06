@@ -12,7 +12,6 @@ const TrackSchema = new mongoose.Schema({
   },
   name: {
     type: String,
-    required: true,
   },
   file: {
     key: {

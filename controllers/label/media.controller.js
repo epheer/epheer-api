@@ -1,4 +1,4 @@
-const releaseMediaService = require("../../services/label/media.service");
+const mediaService = require("../../services/label/media.service");
 const { HTTP_STATUS } = require("../../config/http-statuses");
 
 class MediaController {
@@ -14,7 +14,7 @@ class MediaController {
       const { releaseId } = req.params;
       const fileBuffer = req.file.buffer;
 
-      await releaseMediaService.uploadCover(artistId, releaseId, fileBuffer);
+      await mediaService.uploadCover(artistId, releaseId, fileBuffer);
 
       return res.status(HTTP_STATUS.CREATED).json({
         message: "Обложка успешно загружена.",
@@ -37,7 +37,7 @@ class MediaController {
       const { trackNumber, trackTitle, fileType } = req.body;
       const fileBufferOrStream = req.file.buffer;
 
-      await releaseMediaService.uploadTrack(
+      await mediaService.uploadTrack(
         artistId,
         releaseId,
         trackNumber,
@@ -65,7 +65,7 @@ class MediaController {
       const artistId = req.params.id;
       const { releaseId, size } = req.params;
 
-      const coverStream = await releaseMediaService.getCover(
+      const coverStream = await mediaService.getCover(
         artistId,
         releaseId,
         size
@@ -89,7 +89,7 @@ class MediaController {
       const artistId = req.params.id;
       const { releaseId, fileName } = req.params;
 
-      const trackStream = await releaseMediaService.getTrack(
+      const trackStream = await mediaService.getTrack(
         artistId,
         releaseId,
         fileName
@@ -126,7 +126,7 @@ class MediaController {
         filePath = `/tracks/${fileName}`;
       }
 
-      const fileBuffer = await releaseMediaService.downloadFile(
+      const fileBuffer = await mediaService.downloadFile(
         artistId,
         releaseId,
         filePath
@@ -161,7 +161,7 @@ class MediaController {
       const artistId = req.params.id;
       const { releaseId, fileName } = req.params;
 
-      await releaseMediaService.deleteFile(artistId, releaseId, fileName);
+      await mediaService.deleteFile(artistId, releaseId, fileName);
 
       return res.status(HTTP_STATUS.NO_CONTENT).send();
     } catch (e) {

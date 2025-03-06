@@ -8,6 +8,7 @@ const routes = [
   { path: "/managers", route: require("./label/manager.routes") },
   { path: "/media", route: require("./label/media.routes") },
   { path: "/releases", route: require("./label/release.routes") },
+  { path: "/tracks", route: require("./label/track.routes") },
 ];
 
 routes.forEach(({ path, route }) => {
