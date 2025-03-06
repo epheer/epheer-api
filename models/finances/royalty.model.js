@@ -17,10 +17,6 @@ const RoyaltyHistorySchema = new Schema({
   },
   period: {
     type: String,
-    required: true,
-  },
-  payout_date: {
-    type: Date,
   },
   receipt_key: {
     type: String,
@@ -44,18 +40,19 @@ const RoyaltySchema = new Schema({
     type: Number,
     default: 0,
   },
-  date: {
-    type: Date,
-  },
-  period: {
-    type: String,
-  },
   status: {
     type: String,
     enum: ["active", "paid", "blocked"],
     default: "active",
   },
   history: [RoyaltyHistorySchema],
+});
+
+RoyaltySchema.virtual("contract", {
+  ref: "Contract",
+  localField: "artist",
+  foreignField: "artist",
+  justOne: true,
 });
 
 module.exports = mongoose.model("Royalty", RoyaltySchema, "royalties");

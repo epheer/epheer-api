@@ -1,11 +1,11 @@
 module.exports = class ContractDto {
-  id;
+  artist_id;
   surname;
   firstname;
   patronymic;
   contact;
   email;
-  contract_id;
+  id;
   contract_number;
   file;
   percentage;
