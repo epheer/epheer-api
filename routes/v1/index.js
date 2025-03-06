@@ -12,6 +12,8 @@ const routes = [
   { path: "/releases", route: require("./label/release.routes") },
   { path: "/tracks", route: require("./label/track.routes") },
   { path: "/notes", route: require("./label/note.routes") },
+  //docs
+  { path: "/docs", route: require("./label/document.routes") },
 ];
 
 routes.forEach(({ path, route }) => {

@@ -2,12 +2,6 @@ const mediaService = require("../../services/label/media.service");
 const { HTTP_STATUS } = require("../../config/http-statuses");
 
 class MediaController {
-  /**
-   * Загрузка обложки релиза
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Next middleware function
-   */
   async uploadCover(req, res, next) {
     try {
       const artistId = req.params.id;
@@ -24,12 +18,6 @@ class MediaController {
     }
   }
 
-  /**
-   * Загрузка трека релиза
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Next middleware function
-   */
   async uploadTrack(req, res, next) {
     try {
       const artistId = req.params.id;
@@ -54,12 +42,6 @@ class MediaController {
     }
   }
 
-  /**
-   * Получение обложки релиза
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Next middleware function
-   */
   async getCover(req, res, next) {
     try {
       const artistId = req.params.id;
@@ -78,12 +60,6 @@ class MediaController {
     }
   }
 
-  /**
-   * Получение трека релиза
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Next middleware function
-   */
   async getTrack(req, res, next) {
     try {
       const artistId = req.params.id;
@@ -107,12 +83,6 @@ class MediaController {
     }
   }
 
-  /**
-   * Скачивание файла (обложка или трек)
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Next middleware function
-   */
   async downloadFile(req, res, next) {
     try {
       const artistId = req.params.id;
