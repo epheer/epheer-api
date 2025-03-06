@@ -5,6 +5,14 @@ const UserDto = require("../../dtos/users/user.dto");
 const ApiError = require("../../exceptions/api-error");
 
 class AuthService {
+  async findUserById(id) {
+    const user = await User.findById(id);
+    if (!user) {
+      throw ApiError.NotFoundError("Пользователь не найден");
+    }
+    return user;
+  }
+
   async registration(login, password, role, email) {
     const candidate = await User.findOne({ login });
     if (candidate) {
@@ -12,8 +20,7 @@ class AuthService {
         `Пользователь с логином ${login} уже существует`
       );
     }
-    const hash = await bcrypt.hash(password, 3);
-
+    const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ login, hash, role, email });
     const userDto = new UserDto(user);
     return { user: userDto };
@@ -21,8 +28,11 @@ class AuthService {
 
   async login(login, password) {
     const user = await User.findOne({ login });
+    if (!user) {
+      throw ApiError.BadRequest("Неверный логин или пароль");
+    }
     const isPassEquals = await bcrypt.compare(password, user.hash);
-    if (!user || !isPassEquals) {
+    if (!isPassEquals) {
       throw ApiError.BadRequest("Неверный логин или пароль");
     }
     if (!user.is_active) {
@@ -58,41 +68,29 @@ class AuthService {
   }
 
   async deactivate(id) {
-    const user = await User.findById(id);
-    if (!user) {
-      throw ApiError.NotFoundError();
-    }
+    const user = await this.findUserById(id);
     user.is_active = false;
     await user.save();
     return { message: `Аккаунт пользователя ${id} деактивирован` };
   }
 
   async unblock(id) {
-    const user = await User.findById(id);
-    if (!user) {
-      throw ApiError.NotFoundError("Пользователь не найден");
-    }
+    const user = await this.findUserById(id);
     user.is_active = true;
     await user.save();
     return { message: `Аккаунт пользователя ${id} разблокирован` };
   }
 
   async changePassword(id, password) {
-    const user = await User.findById(id);
-    if (!user) {
-      throw ApiError.NotFoundError("Пользователь не найден");
-    }
-    const hash = await bcrypt.hash(password, 3);
+    const user = await this.findUserById(id);
+    const hash = await bcrypt.hash(password, 10);
     user.hash = hash;
     await user.save();
     return { message: "Пароль успешно изменен" };
   }
 
   async changeEmail(id, email) {
-    const user = await User.findById(id);
-    if (!user) {
-      throw ApiError.NotFoundError("Пользователь не найден");
-    }
+    const user = await this.findUserById(id);
     user.email = email;
     await user.save();
     return { message: "Email успешно изменен" };

@@ -9,12 +9,24 @@ const {
 } = require("../../validators/auth.validator");
 
 class AuthController {
+  #validateSchema(schema, data) {
+    const { error } = schema.validate(data);
+    if (error) {
+      throw ApiError.BadRequest(error.details[0].message);
+    }
+  }
+
+  #setRefreshTokenCookie(res, refreshToken) {
+    res.cookie("refreshToken", refreshToken, {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: true, // Только для HTTPS
+    });
+  }
+
   async registration(req, res, next) {
     try {
-      const { error } = registerSchema.validate(req.body);
-      if (error) {
-        throw ApiError.BadRequest(error.details[0].message);
-      }
+      this.#validateSchema(registerSchema, req.body);
 
       const { login, password, role, email } = req.body;
       const userData = await authService.registration(
@@ -31,17 +43,11 @@ class AuthController {
 
   async login(req, res, next) {
     try {
-      const { error } = loginSchema.validate(req.body);
-      if (error) {
-        throw ApiError.BadRequest(error.details[0].message);
-      }
+      this.#validateSchema(loginSchema, req.body);
 
       const { login, password } = req.body;
       const userData = await authService.login(login, password);
-      res.cookie("refreshToken", userData.refreshToken, {
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-      });
+      this.#setRefreshTokenCookie(res, userData.refreshToken);
       return res.status(HTTP_STATUS.OK).json(userData);
     } catch (e) {
       next(e);
@@ -63,10 +69,7 @@ class AuthController {
     try {
       const { refreshToken } = req.cookies;
       const userData = await authService.refresh(refreshToken);
-      res.cookie("refreshToken", userData.refreshToken, {
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-      });
+      this.#setRefreshTokenCookie(res, userData.refreshToken);
       return res.status(HTTP_STATUS.OK).json(userData);
     } catch (e) {
       next(e);
@@ -86,7 +89,7 @@ class AuthController {
   async unblock(req, res, next) {
     try {
       const id = req.params.id;
-      const { message } = await authService.deactivate(id);
+      const { message } = await authService.unblock(id);
       return res.status(HTTP_STATUS.OK).json(message);
     } catch (e) {
       next(e);
@@ -95,10 +98,7 @@ class AuthController {
 
   async changePassword(req, res, next) {
     try {
-      const { error } = passwordSchema.validate(req.body);
-      if (error) {
-        throw ApiError.BadRequest(error.details[0].message);
-      }
+      this.#validateSchema(passwordSchema, req.body);
 
       const id = req.params.id;
       const { password } = req.body;
@@ -111,14 +111,10 @@ class AuthController {
 
   async changeEmail(req, res, next) {
     try {
-      const { error } = emailSchema.validate(req.body);
-      if (error) {
-        throw ApiError.BadRequest(error.details[0].message);
-      }
+      this.#validateSchema(emailSchema, req.body);
 
       const id = req.params.id;
       const { email } = req.body;
-
       const { message } = await authService.changeEmail(id, email);
       return res.status(HTTP_STATUS.OK).json(message);
     } catch (e) {

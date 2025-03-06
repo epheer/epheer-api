@@ -2,10 +2,20 @@ const { Info } = require("../../models");
 const { InfoDto, FullInfoDto } = require("../../dtos/users/info.dto");
 const ApiError = require("../../exceptions/api-error");
 
-class InfoService {
-  async updateInfo(userId, data) {
-    const allowedFields = ["surname", "firstname", "patronymic", "contact"];
+const MAX_LIMIT = 50;
 
+class InfoService {
+  #processFields(data) {
+    const allowedFields = ["surname", "firstname", "patronymic", "contact"];
+    return allowedFields.reduce((acc, field) => {
+      if (data[field] !== undefined) {
+        acc[field] = data[field];
+      }
+      return acc;
+    }, {});
+  }
+
+  async updateInfo(userId, data) {
     if (!data.surname || !data.firstname) {
       throw new ApiError.BadRequest("Отсутствуют обязательные поля");
     }
@@ -13,21 +23,12 @@ class InfoService {
     let info = await Info.findOne({ user: userId });
 
     if (info) {
-      allowedFields.forEach((field) => {
-        if (data[field] !== undefined) {
-          info[field] = data[field];
-        }
-      });
+      Object.assign(info, this.#processFields(data));
       await info.save();
     } else {
       info = await Info.create({
         user: userId,
-        ...allowedFields.reduce((acc, field) => {
-          if (data[field] !== undefined) {
-            acc[field] = data[field];
-          }
-          return acc;
-        }, {}),
+        ...this.#processFields(data),
       });
     }
 
@@ -45,28 +46,17 @@ class InfoService {
       .populate("user", "-hash")
       .exec();
 
-    if (infos.length === 0) {
-      throw new ApiError.NotFoundError("Информация о пользователях не найдена");
-    }
-
     return infos.map((info) => new FullInfoDto(info));
   }
 
-  async getAllUsers(filterOptions, sortOptions, searchQuery, page, limit) {
-    if (page < 1 || limit < 1) {
-      throw new ApiError.BadRequest("Неверные параметры пагинации");
-    }
-
-    limit = Math.min(limit, 50);
-
+  #buildFilter(filterOptions, searchQuery) {
     const filter = {};
-    const searchRegex = new RegExp(searchQuery, "i");
-
     if (filterOptions.role) {
       filter["user.role"] = filterOptions.role;
     }
 
     if (searchQuery) {
+      const searchRegex = new RegExp(searchQuery, "i");
       filter.$or = [
         { "user.login": searchRegex },
         { "user.email": searchRegex },
@@ -76,6 +66,10 @@ class InfoService {
       ];
     }
 
+    return filter;
+  }
+
+  #buildSort(sortOptions) {
     const sort = {};
     if (sortOptions.createdAt) {
       sort.createdAt = sortOptions.createdAt === "asc" ? 1 : -1;
@@ -83,7 +77,18 @@ class InfoService {
     if (sortOptions.role) {
       sort["user.role"] = sortOptions.role === "asc" ? 1 : -1;
     }
+    return sort;
+  }
 
+  async getAllUsers(filterOptions, sortOptions, searchQuery, page, limit) {
+    if (page < 1 || limit < 1) {
+      throw new ApiError.BadRequest("Неверные параметры пагинации");
+    }
+
+    limit = Math.min(limit, MAX_LIMIT);
+
+    const filter = this.#buildFilter(filterOptions, searchQuery);
+    const sort = this.#buildSort(sortOptions);
     const skip = (page - 1) * limit;
 
     const infos = await Info.find(filter)
@@ -92,10 +97,6 @@ class InfoService {
       .skip(skip)
       .limit(limit)
       .exec();
-
-    if (infos.length === 0) {
-      throw new ApiError.NotFoundError("Информация о пользователях не найдена");
-    }
 
     const total = await Info.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);

@@ -1,13 +1,16 @@
 const jwt = require("jsonwebtoken");
-const { Token } = require("../../models/");
+const { Token, User } = require("../../models/");
+
+const ACCESS_TOKEN_LIFETIME = "15m";
+const REFRESH_TOKEN_LIFETIME = "30d";
 
 class TokenService {
   generateTokens(payload) {
     const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
-      expiresIn: "15m",
+      expiresIn: ACCESS_TOKEN_LIFETIME,
     });
     const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
-      expiresIn: "30d",
+      expiresIn: REFRESH_TOKEN_LIFETIME,
     });
     return {
       accessToken,
@@ -15,25 +18,30 @@ class TokenService {
     };
   }
 
-  validateAccessToken(token) {
+  validateToken(token, secret) {
     try {
-      const userData = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+      const userData = jwt.verify(token, secret);
       return userData;
     } catch (e) {
+      console.error("Ошибка валидации токена:", e.message);
       return null;
     }
+  }
+
+  validateAccessToken(token) {
+    return this.validateToken(token, process.env.JWT_ACCESS_SECRET);
   }
 
   validateRefreshToken(token) {
-    try {
-      const userData = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-      return userData;
-    } catch (e) {
-      return null;
-    }
+    return this.validateToken(token, process.env.JWT_REFRESH_SECRET);
   }
 
   async saveToken(userId, refreshToken) {
+    const userExists = await User.exists({ _id: userId });
+    if (!userExists) {
+      throw new Error("Пользователь не найден");
+    }
+
     const tokenData = await Token.findOne({ user: userId });
     if (tokenData) {
       tokenData.refreshToken = refreshToken;
@@ -45,6 +53,9 @@ class TokenService {
 
   async removeToken(refreshToken) {
     const tokenData = await Token.deleteOne({ refreshToken });
+    if (tokenData.deletedCount === 0) {
+      throw new Error("Токен не найден");
+    }
     return tokenData;
   }
 
