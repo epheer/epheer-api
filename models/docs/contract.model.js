@@ -7,13 +7,22 @@ const AppendixSchema = new Schema({
     enum: ["termination", "appendix"],
     required: true,
   },
-  pdf_key: {
+  appendix_number: {
     type: String,
     required: true,
+    unique: true,
+  },
+  pdf_key: {
+    type: String,
   },
 });
 
 const ContractSchema = new Schema({
+  contract_number: {
+    type: String,
+    required: true,
+    unique: true,
+  },
   artist: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -21,7 +30,6 @@ const ContractSchema = new Schema({
   },
   pdf_key: {
     type: String,
-    required: true,
   },
   percentage: {
     type: Number,

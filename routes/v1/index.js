@@ -13,7 +13,8 @@ const routes = [
   { path: "/tracks", route: require("./label/track.routes") },
   { path: "/notes", route: require("./label/note.routes") },
   //docs
-  { path: "/docs", route: require("./label/document.routes") },
+  { path: "/docs", route: require("./docs/document.routes") },
+  { path: "/contracts", route: require("./docs/contract.routes") },
 ];
 
 routes.forEach(({ path, route }) => {

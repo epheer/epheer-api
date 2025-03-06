@@ -25,7 +25,6 @@ router.get(
   "/:id/:type/:documentId",
   auth,
   access("label"),
-  uploadTrack.single("file"),
   controller.downloadDocument
 );
 
