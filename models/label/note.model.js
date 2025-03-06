@@ -6,6 +6,7 @@ const NoteSchema = new Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Release",
     required: true,
+    unique: true,
   },
   focus_tracks: [
     {
@@ -16,7 +17,6 @@ const NoteSchema = new Schema({
   pitched: [
     {
       type: String,
-      required: true,
     },
   ],
   comment: {
