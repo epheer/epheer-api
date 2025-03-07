@@ -12,4 +12,4 @@ RUN yarn global add pm2
 
 EXPOSE 3000
 
-CMD ["pm2-runtime", "start", "app.js", "--name", "my-app"]
+CMD ["pm2-runtime", "start", "app.js", "--name", "epheer-api"]
