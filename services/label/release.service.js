@@ -2,12 +2,32 @@ const { Release } = require("../../models");
 const ApiError = require("../../exceptions/api-error");
 const { ReleaseDto, FullReleaseDto } = require("../../dtos/label/release.dto");
 
+const MAX_LIMIT = 50;
+
 class ReleaseService {
+  #updateStatusHistory(release, status, userId, message) {
+    release.status.label = status;
+    release.status.message = message;
+    release.status.history.push({
+      editor: userId,
+      status: {
+        label: status,
+        message,
+      },
+    });
+  }
+
   async createRelease(artistId, stageName) {
-    await Release.deleteMany({
+    const existingDraft = await Release.findOne({
       "artist.user_id": artistId,
       "status.label": "draft",
     });
+
+    if (existingDraft) {
+      throw new ApiError.BadRequest(
+        "Черновик релиза уже существует, удалите его или продолжайте его редактирование"
+      );
+    }
 
     const release = new Release({
       artist: {
@@ -77,7 +97,9 @@ class ReleaseService {
     const requiredFields = ["name", "type", "date", "cover_key", "authors"];
     for (const field of requiredFields) {
       if (!release[field]) {
-        throw new ApiError.BadRequest(`Отсутствует обязательные поля`);
+        throw new ApiError.BadRequest(
+          `Отсутствует обязательное поле: ${field}`
+        );
       }
     }
 
@@ -130,16 +152,7 @@ class ReleaseService {
       throw new ApiError.NotFoundError("Релиз не найден");
     }
 
-    release.status.label = status;
-    release.status.message = message;
-    release.status.history.push({
-      editor: userId,
-      status: {
-        label: status,
-        message,
-      },
-    });
-
+    this.#updateStatusHistory(release, status, userId, message);
     await release.save();
 
     return new FullReleaseDto(release);
@@ -208,7 +221,7 @@ class ReleaseService {
       throw new ApiError.BadRequest("Неверные параметры пагинации");
     }
 
-    limit = Math.min(limit, 50);
+    limit = Math.min(limit, MAX_LIMIT);
     const skip = (page - 1) * limit;
 
     const releases = await Release.find(filter)

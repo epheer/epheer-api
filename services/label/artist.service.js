@@ -2,7 +2,63 @@ const { User, Artist } = require("../../models");
 const ApiError = require("../../exceptions/api-error");
 const ArtistDto = require("../../dtos/label/artist.dto");
 
+const MAX_LIMIT = 50;
+
 class ArtistService {
+  async #findUserById(id) {
+    const user = await User.findById(id);
+    if (!user) {
+      throw ApiError.NotFoundError("Пользователь не найден");
+    }
+    return user;
+  }
+
+  async #findArtistById(id) {
+    const artist = await Artist.findOne({ user: id });
+    if (!artist) {
+      throw ApiError.NotFoundError("Артист не найден");
+    }
+    return artist;
+  }
+
+  #buildFilter(filterOptions, searchQuery) {
+    const filter = {};
+    if (filterOptions.managerId) {
+      filter.manager = filterOptions.managerId;
+    }
+
+    if (searchQuery) {
+      const searchRegex = new RegExp(searchQuery, "i");
+      filter.$or = [
+        { stage_name: searchRegex },
+        { "user.info.surname": searchRegex },
+        { "user.info.firstname": searchRegex },
+      ];
+    }
+
+    return filter;
+  }
+
+  #buildSort(sortOptions) {
+    const sort = {};
+    if (sortOptions.stage_name) {
+      sort.stage_name = sortOptions.stage_name === "asc" ? 1 : -1;
+    }
+    if (sortOptions.surname) {
+      sort["user.info.surname"] = sortOptions.surname === "asc" ? 1 : -1;
+    }
+    if (sortOptions.firstname) {
+      sort["user.info.firstname"] = sortOptions.firstname === "asc" ? 1 : -1;
+    }
+    if (sortOptions.createdAt) {
+      sort["user.createdAt"] = sortOptions.createdAt === "asc" ? 1 : -1;
+    } else {
+      sort["user.createdAt"] = -1;
+    }
+
+    return sort;
+  }
+
   async updateStageName(userId, stageName) {
     if (!stageName || typeof stageName !== "string") {
       throw ApiError.BadRequest("Имя артиста должно быть строкой");
@@ -20,25 +76,18 @@ class ArtistService {
         stage_name: stageName,
       });
       await artist.save();
-      return artist;
+      return new ArtistDto(artist);
     }
 
     artist.stage_name = stageName;
     await artist.save();
 
-    return artist.stage_name;
+    return new ArtistDto(artist);
   }
 
   async linkManager(artistId, managerId) {
-    const artist = await Artist.findById(artistId);
-    if (!artist) {
-      throw ApiError.NotFoundError("Артист не найден");
-    }
-
-    const manager = await User.findById(managerId);
-    if (!manager) {
-      throw ApiError.NotFoundError("Менеджер не найден");
-    }
+    const artist = await this.#findArtistById(artistId);
+    const manager = await this.#findUserById(managerId);
 
     if (manager.role !== "manager" && manager.role !== "root") {
       throw ApiError.BadRequest(
@@ -49,7 +98,7 @@ class ArtistService {
     artist.manager = managerId;
     await artist.save();
 
-    return artist;
+    return new ArtistDto(artist);
   }
 
   async getArtistsByIds(artistIds) {
@@ -58,7 +107,7 @@ class ArtistService {
     }
 
     if (artistIds.length === 0) {
-      throw ApiError.BadRequest("Список ID артистов не может быть пустым");
+      return [];
     }
 
     const artists = await Artist.find({ _id: { $in: artistIds } })
@@ -80,13 +129,7 @@ class ArtistService {
       })
       .exec();
 
-    if (artists.length === 0) {
-      throw ApiError.NotFoundError("Артисты не найдены");
-    }
-
-    const result = artists.map((artist) => new ArtistDto(artist));
-
-    return result;
+    return artists.map((artist) => new ArtistDto(artist));
   }
 
   async getAllArtists(filterOptions, sortOptions, searchQuery, page, limit) {
@@ -94,39 +137,10 @@ class ArtistService {
       throw ApiError.BadRequest("Неверные параметры пагинации");
     }
 
-    limit = Math.min(limit, 50);
+    limit = Math.min(limit, MAX_LIMIT);
 
-    const filter = {};
-    const searchRegex = new RegExp(searchQuery, "i");
-
-    if (filterOptions.managerId) {
-      filter.manager = filterOptions.managerId;
-    }
-
-    if (searchQuery) {
-      filter.$or = [
-        { stage_name: searchRegex },
-        { "user.info.surname": searchRegex },
-        { "user.info.firstname": searchRegex },
-      ];
-    }
-
-    const sort = {};
-    if (sortOptions.stage_name) {
-      sort.stage_name = sortOptions.stage_name === "asc" ? 1 : -1;
-    }
-    if (sortOptions.surname) {
-      sort["user.info.surname"] = sortOptions.surname === "asc" ? 1 : -1;
-    }
-    if (sortOptions.firstname) {
-      sort["user.info.firstname"] = sortOptions.firstname === "asc" ? 1 : -1;
-    }
-    if (sortOptions.createdAt) {
-      sort["user.createdAt"] = sortOptions.createdAt === "asc" ? 1 : -1;
-    } else {
-      sort["user.createdAt"] = -1;
-    }
-
+    const filter = this.#buildFilter(filterOptions, searchQuery);
+    const sort = this.#buildSort(sortOptions);
     const skip = (page - 1) * limit;
 
     const artists = await Artist.find(filter)
@@ -150,10 +164,6 @@ class ArtistService {
       .skip(skip)
       .limit(limit)
       .exec();
-
-    if (artists.length === 0) {
-      throw ApiError.NotFoundError("Артисты не найдены");
-    }
 
     const total = await Artist.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);

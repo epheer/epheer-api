@@ -10,27 +10,48 @@ const {
   validateAudioFile,
   validateImageFile,
 } = require("../../validators/media.validator");
+const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+
+const s3Client = new S3Client({ region: process.env.YC_REGION });
+
+const COVER_SIZES = {
+  ORIGINAL: "original",
+  LARGE: 1200,
+  MEDIUM: 600,
+};
 
 class MediaService {
+  #getFileKey(artistId, releaseId, filePath) {
+    return `artists/${artistId}/releases/${releaseId}/${filePath}`;
+  }
+
   async uploadCover(artistId, releaseId, fileBuffer) {
     if (!(await validateImageFile(fileBuffer))) {
       throw new ApiError.BadRequest("Недопустимый формат или размер обложки.");
     }
 
-    const coverKey = `artists/${artistId}/releases/${releaseId}/cover.jpg`;
-    const thumb1200Key = `artists/${artistId}/releases/${releaseId}/thumb_1200.jpg`;
-    const thumb600Key = `artists/${artistId}/releases/${releaseId}/thumb_600.jpg`;
+    const coverKey = this.#getFileKey(artistId, releaseId, "cover.jpg");
+    const thumb1200Key = this.#getFileKey(
+      artistId,
+      releaseId,
+      `thumb_${COVER_SIZES.LARGE}.jpg`
+    );
+    const thumb600Key = this.#getFileKey(
+      artistId,
+      releaseId,
+      `thumb_${COVER_SIZES.MEDIUM}.jpg`
+    );
 
     await uploadFile(coverKey, fileBuffer, "image/jpeg");
 
     const thumb1200Buffer = await sharp(fileBuffer)
-      .resize(1200, 1200, { fit: "inside" })
+      .resize(COVER_SIZES.LARGE, COVER_SIZES.LARGE, { fit: "inside" })
       .toFormat("jpeg")
       .toBuffer();
     await uploadFile(thumb1200Key, thumb1200Buffer, "image/jpeg");
 
     const thumb600Buffer = await sharp(fileBuffer)
-      .resize(600, 600, { fit: "inside" })
+      .resize(COVER_SIZES.MEDIUM, COVER_SIZES.MEDIUM, { fit: "inside" })
       .toFormat("jpeg")
       .toBuffer();
     await uploadFile(thumb600Key, thumb600Buffer, "image/jpeg");
@@ -72,7 +93,11 @@ class MediaService {
     }
 
     const trackFileName = `${trackOrder}-${trackTitle}.${fileType}`;
-    const trackKey = `artists/${artistId}/releases/${releaseId}/tracks/${trackFileName}`;
+    const trackKey = this.#getFileKey(
+      artistId,
+      releaseId,
+      `tracks/${trackFileName}`
+    );
 
     await uploadFile(trackKey, fileBuffer, `audio/${fileType}`);
     return {
@@ -85,14 +110,22 @@ class MediaService {
     let key;
 
     switch (size) {
-      case "original":
-        key = `artists/${artistId}/releases/${releaseId}/cover.jpg`;
+      case COVER_SIZES.ORIGINAL:
+        key = this.#getFileKey(artistId, releaseId, "cover.jpg");
         break;
-      case "1200":
-        key = `artists/${artistId}/releases/${releaseId}/thumb_1200.jpg`;
+      case COVER_SIZES.LARGE.toString():
+        key = this.#getFileKey(
+          artistId,
+          releaseId,
+          `thumb_${COVER_SIZES.LARGE}.jpg`
+        );
         break;
-      case "600":
-        key = `artists/${artistId}/releases/${releaseId}/thumb_600.jpg`;
+      case COVER_SIZES.MEDIUM.toString():
+        key = this.#getFileKey(
+          artistId,
+          releaseId,
+          `thumb_${COVER_SIZES.MEDIUM}.jpg`
+        );
         break;
       default:
         throw new ApiError.BadRequest("Недопустимый размер обложки.");
@@ -106,7 +139,11 @@ class MediaService {
   }
 
   async getTrack(artistId, releaseId, trackFileName) {
-    const trackKey = `artists/${artistId}/releases/${releaseId}/tracks/${trackFileName}`;
+    const trackKey = this.#getFileKey(
+      artistId,
+      releaseId,
+      `tracks/${trackFileName}`
+    );
 
     if (!(await checkFileExists(trackKey))) {
       throw new ApiError.NotFoundError("Трек не найден.");
@@ -116,7 +153,7 @@ class MediaService {
   }
 
   async downloadFile(artistId, releaseId, filePath) {
-    const key = `artists/${artistId}/releases/${releaseId}/${filePath}`;
+    const key = this.#getFileKey(artistId, releaseId, filePath);
 
     if (!(await checkFileExists(key))) {
       throw new ApiError.NotFoundError("Файл не найден.");
@@ -126,7 +163,7 @@ class MediaService {
   }
 
   async deleteFile(artistId, releaseId, filePath) {
-    const key = `artists/${artistId}/releases/${releaseId}/${filePath}`;
+    const key = this.#getFileKey(artistId, releaseId, filePath);
 
     if (!(await checkFileExists(key))) {
       throw new ApiError.NotFoundError("Файл не найден.");
@@ -139,7 +176,10 @@ class MediaService {
     return new Promise((resolve, reject) => {
       const chunks = [];
       stream.on("data", (chunk) => chunks.push(chunk));
-      stream.on("error", (err) => reject(err));
+      stream.on("error", (err) => {
+        console.error("Ошибка при чтении потока:", err.message);
+        reject(err);
+      });
       stream.on("end", () => resolve(Buffer.concat(chunks)));
     });
   }

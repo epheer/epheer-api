@@ -6,10 +6,6 @@ class ManagerController {
     try {
       const managerId = req.params.id;
 
-      if (!managerId) {
-        return next(new ApiError.BadRequest("Не указан ID менеджера"));
-      }
-
       const artists = await ManagerService.getArtistsByManager(managerId);
 
       return res.status(HTTP_STATUS.OK).json(artists);

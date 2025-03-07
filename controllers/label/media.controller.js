@@ -25,6 +25,17 @@ class MediaController {
       const { trackNumber, trackTitle, fileType } = req.body;
       const fileBufferOrStream = req.file.buffer;
 
+      if (
+        !trackNumber ||
+        typeof trackNumber !== "number" ||
+        !trackTitle ||
+        typeof trackTitle !== "string" ||
+        !fileType ||
+        !["wav", "flac"].includes(fileType)
+      ) {
+        throw new ApiError.BadRequest("Неверные параметры трека");
+      }
+
       await mediaService.uploadTrack(
         artistId,
         releaseId,

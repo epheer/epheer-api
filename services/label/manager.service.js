@@ -3,8 +3,10 @@ const ApiError = require("../../exceptions/api-error");
 const ArtistDto = require("../../dtos/label/artist.dto");
 const ManagerDto = require("../../dtos/label/manager.dto");
 
+const MAX_LIMIT = 50;
+
 class ManagerService {
-  async getArtistsByManager(managerId) {
+  async #getArtistsByManagerId(managerId) {
     const artists = await Artist.find({ manager: managerId })
       .populate({
         path: "user",
@@ -28,28 +30,26 @@ class ManagerService {
       throw ApiError.NotFoundError("Артисты не найдены");
     }
 
-    const result = artists.map((artist) => new ArtistDto(artist));
-
-    return result;
+    return artists.map((artist) => new ArtistDto(artist));
   }
 
-  async getAllManagers(sortOptions, searchQuery, page, limit) {
-    if (page < 1 || limit < 1) {
-      throw ApiError.BadRequest("Неверные параметры пагинации");
-    }
+  async getArtistsByManager(managerId) {
+    return this.#getArtistsByManagerId(managerId);
+  }
 
-    limit = Math.min(limit, 50);
-
+  #buildFilter(searchQuery) {
     const filter = {};
-    const searchRegex = new RegExp(searchQuery, "i");
-
     if (searchQuery) {
+      const searchRegex = new RegExp(searchQuery, "i");
       filter.$or = [
         { "user.info.surname": searchRegex },
         { "user.info.firstname": searchRegex },
       ];
     }
+    return filter;
+  }
 
+  #buildSort(sortOptions) {
     const sort = {};
     if (sortOptions.surname) {
       sort["user.info.surname"] = sortOptions.surname === "asc" ? 1 : -1;
@@ -62,10 +62,22 @@ class ManagerService {
     } else {
       sort["user.createdAt"] = -1;
     }
+    return sort;
+  }
 
+  async getAllManagers(sortOptions, searchQuery, page, limit) {
+    if (page < 1 || limit < 1) {
+      throw ApiError.BadRequest("Неверные параметры пагинации");
+    }
+
+    limit = Math.min(limit, MAX_LIMIT);
+
+    const filter = this.#buildFilter(searchQuery);
+    const sort = this.#buildSort(sortOptions);
     const skip = (page - 1) * limit;
 
     const managers = await User.find({
+      ...filter,
       $or: [{ role: "root" }, { role: "manager" }],
     })
       .sort(sort)
@@ -74,10 +86,10 @@ class ManagerService {
       .exec();
 
     if (managers.length === 0) {
-      throw ApiError.NotFoundError("Артисты не найдены");
+      throw ApiError.NotFoundError("Менеджеры не найдены");
     }
 
-    const total = await Artist.countDocuments(filter);
+    const total = await User.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);
 
     return {
