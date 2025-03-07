@@ -3,7 +3,27 @@ const ApiError = require("../../exceptions/api-error");
 const ContractDto = require("../../dtos/docs/contract.dto");
 
 class ContractService {
-  async generateContractNumber() {
+  async #findContractByArtistId(artistId) {
+    const contract = await Contract.findOne({ artist: artistId });
+    if (!contract) {
+      throw new ApiError.NotFoundError("Договор не найден");
+    }
+    return contract;
+  }
+
+  async #findAppendix(contract, appendixIdentifier) {
+    const appendix = contract.appendices.find(
+      (item) =>
+        item.appendix_number === appendixIdentifier ||
+        item._id.equals(appendixIdentifier)
+    );
+    if (!appendix) {
+      throw new ApiError.NotFoundError("Приложение не найдено");
+    }
+    return appendix;
+  }
+
+  async #generateContractNumber() {
     const currentYear = new Date().getFullYear();
     const prefix = `${currentYear}-`;
 
@@ -26,29 +46,28 @@ class ContractService {
     return contractNumber;
   }
 
-  async generateAppendixNumber(contractId) {
+  async #generateAppendixNumber(contractId) {
     const contract = await Contract.findById(contractId);
-
     if (!contract) {
       throw new ApiError.NotFoundError("Договор не найден");
     }
-
     return contract.appendices.length + 1;
   }
 
   async createContract(artistId, percentage) {
-    const user = await User.findById(artistId);
-    if (user.role !== "artist") {
+    const user = await User.findOne({ _id: artistId, role: "artist" });
+    if (!user) {
       throw new ApiError.BadRequest(
         "Регистрация договоров возможна только для артистов"
       );
     }
+
     const existingContract = await Contract.findOne({ artist: artistId });
     if (existingContract) {
       throw new ApiError.BadRequest("Договор для этого артиста уже существует");
     }
 
-    const contractNumber = await this.generateContractNumber();
+    const contractNumber = await this.#generateContractNumber();
 
     const contract = new Contract({
       contract_number: contractNumber,
@@ -61,13 +80,9 @@ class ContractService {
   }
 
   async createAppendix(artistId) {
-    const contract = await Contract.findOne({ artist: artistId });
+    const contract = await this.#findContractByArtistId(artistId);
 
-    if (!contract) {
-      throw new ApiError.NotFoundError("Договор не найден");
-    }
-
-    const appendixNumber = await this.generateAppendixNumber(contract._id);
+    const appendixNumber = await this.#generateAppendixNumber(contract._id);
     const appendix = {
       type: "appendix",
       appendix_number: `${contract.contract_number}-${appendixNumber}`,
@@ -76,14 +91,12 @@ class ContractService {
     contract.appendices.push(appendix);
     await contract.save();
 
-    return {
-      appendix_number: appendix.appendix_number,
-    };
+    return { appendix_number: appendix.appendix_number };
   }
 
   async updateContract(artistId, data) {
     const allowedFields = ["percentage", "pdf_key"];
-    const updateData = this._filterAllowedFields(data, allowedFields);
+    const updateData = this.#filterAllowedFields(data, allowedFields);
 
     const contract = await Contract.findOneAndUpdate(
       { artist: artistId },
@@ -100,7 +113,7 @@ class ContractService {
 
   async updateAppendix(appendixNumber, data) {
     const allowedFields = ["pdf_key"];
-    const updateData = this._filterAllowedFields(data, allowedFields);
+    const updateData = this.#filterAllowedFields(data, allowedFields);
 
     const contract = await Contract.findOne({
       "appendices.appendix_number": appendixNumber,
@@ -109,14 +122,7 @@ class ContractService {
       throw new ApiError.NotFoundError("Договор не найден");
     }
 
-    const appendix = contract.appendices.find(
-      (item) => item.appendix_number === appendixNumber
-    );
-
-    if (!appendix) {
-      throw new ApiError.NotFoundError("Приложение не найдено");
-    }
-    я;
+    const appendix = await this.#findAppendix(contract, appendixNumber);
     Object.assign(appendix, updateData);
     await contract.save();
 
@@ -124,21 +130,16 @@ class ContractService {
   }
 
   async createTermination(artistId) {
-    const contract = await Contract.findOne({ artist: artistId });
-
-    if (!contract) {
-      throw new ApiError.NotFoundError("Договор не найден");
-    }
+    const contract = await this.#findContractByArtistId(artistId);
 
     const existingTermination = contract.appendices.find(
       (appendix) => appendix.type === "termination"
     );
-
     if (existingTermination) {
       throw new ApiError.BadRequest("Расторжение соглашения уже существует");
     }
 
-    const appendixNumber = await this.generateAppendixNumber(contract._id);
+    const appendixNumber = await this.#generateAppendixNumber(contract._id);
     const termination = {
       type: "termination",
       appendix_number: `${contract.contract_number}-${appendixNumber}`,
@@ -173,16 +174,17 @@ class ContractService {
   }
 
   async getContractByArtistId(artistId) {
-    const contract = await Contract.findOne({ artist: artistId });
-
-    if (!contract) {
-      throw new ApiError.NotFoundError("Договор не найден");
-    }
-
+    const contract = await this.#findContractByArtistId(artistId);
     return contract;
   }
 
-  async getAllContracts(filterOptions, sortOptions, searchQuery, page, limit) {
+  async getAllContracts({
+    filterOptions,
+    sortOptions,
+    searchQuery,
+    page,
+    limit,
+  }) {
     if (page < 1 || limit < 1) {
       throw new ApiError.BadRequest("Неверные параметры пагинации");
     }
@@ -228,11 +230,9 @@ class ContractService {
       .sort(sort)
       .skip(skip)
       .limit(limit)
+      .lean()
       .exec();
 
-    if (contracts.length === 0) {
-      throw new ApiError.NotFoundError("Договоры не найдены");
-    }
     const result = contracts.map((contract) => new ContractDto(contract));
 
     const total = await Contract.countDocuments(filter);
@@ -247,6 +247,16 @@ class ContractService {
         limit,
       },
     };
+  }
+
+  #filterAllowedFields(data, allowedFields) {
+    const filteredData = {};
+    for (const key of allowedFields) {
+      if (data.hasOwnProperty(key)) {
+        filteredData[key] = data[key];
+      }
+    }
+    return filteredData;
   }
 }
 

@@ -7,57 +7,56 @@ const {
 const ApiError = require("../../exceptions/api-error");
 
 class DocumentService {
-  async uploadFile(artistId, type, documentId, fileBuffer) {
+  #validateDocumentType(type) {
     if (!["contract", "receipt"].includes(type)) {
       throw ApiError.BadRequest("Недопустимый тип документа");
     }
+  }
 
-    const key = `artists/${artistId}/docs/${type}s/${documentId}.pdf`;
+  #generateKey(artistId, type, documentId) {
+    return `artists/${artistId}/docs/${type}s/${documentId}.pdf`;
+  }
 
+  async #handleStorageOperation(operation, key, ...args) {
     try {
-      const exists = await checkFileExists(key);
-      if (exists) {
-        throw ApiError.ConflictError(`Файл ${documentId}.pdf уже существует.`);
-      }
-
-      await uploadFile(key, fileBuffer, "application/pdf");
+      return await operation(key, ...args);
     } catch (error) {
-      throw ApiError.InternalServerError(error);
+      throw ApiError.InternalServerError(
+        error.message || "Ошибка при работе с файлом"
+      );
     }
+  }
+
+  async uploadFile(artistId, type, documentId, fileBuffer) {
+    this.#validateDocumentType(type);
+
+    const key = this.#generateKey(artistId, type, documentId);
+
+    const exists = await this.#handleStorageOperation(checkFileExists, key);
+    if (exists) {
+      throw ApiError.ConflictError(`Файл ${documentId}.pdf уже существует.`);
+    }
+
+    await this.#handleStorageOperation(
+      uploadFile,
+      key,
+      fileBuffer,
+      "application/pdf"
+    );
   }
 
   async downloadFile(artistId, type, documentId) {
-    if (!["contract", "receipt"].includes(type)) {
-      throw ApiError.BadRequest("Недопустимый тип документа");
-    }
+    this.#validateDocumentType(type);
 
-    const key = `artists/${artistId}/docs/${type}s/${documentId}.pdf`;
-
-    try {
-      const fileBuffer = await getFile(key);
-      return fileBuffer;
-    } catch (error) {
-      throw ApiError.InternalServerError(error);
-    }
+    const key = this.#generateKey(artistId, type, documentId);
+    return await this.#handleStorageOperation(getFile, key);
   }
 
   async deleteFile(artistId, type, documentId) {
-    if (!["contract", "receipt"].includes(type)) {
-      throw ApiError.BadRequest("Недопустимый тип документа");
-    }
+    this.#validateDocumentType(type);
 
-    const key = `artists/${artistId}/docs/${type}s/${documentId}.pdf`;
-
-    try {
-      const exists = await checkFileExists(key);
-      if (!exists) {
-        throw ApiError.NotFoundError(`Файл ${documentId}.pdf не найден.`);
-      }
-
-      await deleteFile(key);
-    } catch (error) {
-      throw ApiError.InternalServerError(error);
-    }
+    const key = this.#generateKey(artistId, type, documentId);
+    await this.#handleStorageOperation(deleteFile, key);
   }
 }
 

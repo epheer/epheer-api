@@ -4,11 +4,34 @@ const ApiError = require("../../exceptions/api-error");
 const RoyaltyDto = require("../../dtos/finances/royalty.dto");
 
 class RoyaltyService {
-  async updatePaymentInfo(artistId, details) {
+  async #runInTransaction(operation) {
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
+      const result = await operation(session);
+      await session.commitTransaction();
+      return result;
+    } catch (error) {
+      await session.abortTransaction();
+      throw ApiError.InternalServerError(error.message || "Ошибка транзакции");
+    } finally {
+      session.endSession();
+    }
+  }
+
+  async #findRoyaltyByArtistId(artistId, session = null) {
+    const royalty = await Royalty.findOne({ artist: artistId }).session(
+      session
+    );
+    if (!royalty) {
+      throw ApiError.NotFoundError("Роялти не найдены");
+    }
+    return royalty;
+  }
+
+  async updatePaymentInfo(artistId, details) {
+    return await this.#runInTransaction(async (session) => {
       let royalty = await Royalty.findOne({ artist: artistId }).session(
         session
       );
@@ -24,30 +47,13 @@ class RoyaltyService {
       }
 
       await royalty.save({ session });
-      await session.commitTransaction();
       return royalty;
-    } catch (error) {
-      await session.abortTransaction();
-      throw ApiError.InternalServerError(
-        "Ошибка при обновлении платежной информации"
-      );
-    } finally {
-      session.endSession();
-    }
+    });
   }
 
   async addIncome(artistId, amount, period) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-      let royalty = await Royalty.findOne({ artist: artistId }).session(
-        session
-      );
-
-      if (!royalty) {
-        throw ApiError.NotFoundError("Роялти не найдены");
-      }
+    return await this.#runInTransaction(async (session) => {
+      let royalty = await this.#findRoyaltyByArtistId(artistId, session);
 
       royalty.status = "active";
       royalty.total_income += amount;
@@ -61,28 +67,13 @@ class RoyaltyService {
       });
 
       await royalty.save({ session });
-      await session.commitTransaction();
       return royalty;
-    } catch (error) {
-      await session.abortTransaction();
-      throw ApiError.InternalServerError("Ошибка при добавлении поступления");
-    } finally {
-      session.endSession();
-    }
+    });
   }
 
   async payout(artistId, amount, receipt_key) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-      const royalty = await Royalty.findOne({ artist: artistId }).session(
-        session
-      );
-
-      if (!royalty) {
-        throw ApiError.NotFoundError("Роялти не найдены");
-      }
+    return await this.#runInTransaction(async (session) => {
+      const royalty = await this.#findRoyaltyByArtistId(artistId, session);
 
       if (royalty.status !== "active") {
         throw ApiError.BadRequest(
@@ -104,28 +95,13 @@ class RoyaltyService {
       });
 
       await royalty.save({ session });
-      await session.commitTransaction();
       return royalty;
-    } catch (error) {
-      await session.abortTransaction();
-      throw ApiError.InternalServerError("Ошибка при выполнении выплаты");
-    } finally {
-      session.endSession();
-    }
+    });
   }
 
   async toggleBlock(artistId) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-      const royalty = await Royalty.findOne({ artist: artistId }).session(
-        session
-      );
-
-      if (!royalty) {
-        throw ApiError.NotFoundError("Роялти не найдены");
-      }
+    return await this.#runInTransaction(async (session) => {
+      const royalty = await this.#findRoyaltyByArtistId(artistId, session);
 
       if (royalty.status === "blocked") {
         royalty.status = royalty.active_income > 0 ? "active" : "paid";
@@ -134,22 +110,13 @@ class RoyaltyService {
       }
 
       await royalty.save({ session });
-      await session.commitTransaction();
       return royalty;
-    } catch (error) {
-      await session.abortTransaction();
-      throw ApiError.InternalServerError("Ошибка при переключении блокировки");
-    } finally {
-      session.endSession();
-    }
+    });
   }
 
   async getArtistRoyalties(artistId) {
     try {
       const royalties = await Royalty.find({ artist: artistId });
-      if (!royalties || royalties.length === 0) {
-        throw ApiError.NotFoundError("Роялти не найдены");
-      }
       return royalties;
     } catch (error) {
       throw ApiError.InternalServerError("Ошибка при получении роялти артиста");
@@ -166,17 +133,13 @@ class RoyaltyService {
             path: "info",
           },
         })
-        .populate("contract");
+        .populate("contract")
+        .lean()
+        .exec();
 
-      if (!royalties || royalties.length === 0) {
-        throw new ApiError.NotFoundError("Активные роялти не найдены");
-      }
-
-      const result = royalties.map((royalty) => new RoyaltyDto(royalty));
-
-      return result;
+      return royalties.map((royalty) => new RoyaltyDto(royalty));
     } catch (error) {
-      throw new ApiError.InternalServerError(
+      throw ApiError.InternalServerError(
         "Ошибка при получении активных роялти"
       );
     }

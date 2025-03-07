@@ -3,14 +3,24 @@ const ApiError = require("../../exceptions/api-error");
 const { HTTP_STATUS } = require("../../config/http-statuses");
 
 class ContractController {
+  #validateRequestBody(data, requiredFields = []) {
+    if (Object.keys(data).length === 0) {
+      throw new ApiError.BadRequest("Нет данных для изменений");
+    }
+
+    for (const field of requiredFields) {
+      if (!data[field]) {
+        throw new ApiError.BadRequest(`Поле '${field}' обязательно`);
+      }
+    }
+  }
+
   async createContract(req, res, next) {
     try {
       const artistId = req.params.id;
       const { percentage } = req.body;
 
-      if (!percentage) {
-        throw new ApiError.BadRequest("Указание процентовки обязательно");
-      }
+      this.#validateRequestBody({ percentage }, ["percentage"]);
 
       const contractNumber = await contractService.createContract(
         artistId,
@@ -37,9 +47,7 @@ class ContractController {
       const artistId = req.params.id;
       const data = req.body;
 
-      if (!data) {
-        throw new ApiError.BadRequest("Нет данных для изменений");
-      }
+      this.#validateRequestBody(data);
 
       const contract = await contractService.updateContract(artistId, data);
       res.status(HTTP_STATUS.OK).json(contract);
@@ -52,6 +60,9 @@ class ContractController {
     try {
       const { appendixNumber } = req.params;
       const data = req.body;
+
+      this.#validateRequestBody(data);
+
       const appendix = await contractService.updateAppendix(
         appendixNumber,
         data
@@ -77,9 +88,7 @@ class ContractController {
       const { terminationId } = req.params;
       const { pdfKey } = req.body;
 
-      if (!pdfKey) {
-        throw new ApiError.BadRequest("Поле 'pdfKey' обязательно");
-      }
+      this.#validateRequestBody({ pdfKey }, ["pdfKey"]);
 
       const result = await contractService.confirmTermination(
         terminationId,
@@ -105,20 +114,22 @@ class ContractController {
     try {
       const { type, status } = req.query;
 
-      const filterOptions = { type, status };
-      const sortOptions = req.query.sort || {};
-      const searchQuery = req.query.search || "";
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
+      const queryOptions = {
+        filterOptions: { type, status },
+        sortOptions: JSON.parse(req.query.sort || "{}"),
+        searchQuery: req.query.search || "",
+        page: parseInt(req.query.page) || 1,
+        limit: parseInt(req.query.limit) || 10,
+      };
 
-      const result = await contractService.getAllContracts(
-        filterOptions,
-        sortOptions,
-        searchQuery,
-        page,
-        limit
-      );
+      if (isNaN(queryOptions.page) || queryOptions.page < 1) {
+        throw new ApiError.BadRequest("Неверный номер страницы");
+      }
+      if (isNaN(queryOptions.limit) || queryOptions.limit < 1) {
+        throw new ApiError.BadRequest("Неверный лимит записей");
+      }
 
+      const result = await contractService.getAllContracts(queryOptions);
       res.status(HTTP_STATUS.OK).json(result);
     } catch (error) {
       next(error);

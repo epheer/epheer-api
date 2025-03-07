@@ -1,12 +1,21 @@
 const DocumentService = require("../../services/docs/document.service");
 const { HTTP_STATUS } = require("../../config/http-statuses");
+const ApiError = require("../../exceptions/api-error");
 
 class DocumentController {
+  #extractParams(req) {
+    const { id: artistId, type, documentId } = req.params;
+    return { artistId, type, documentId };
+  }
+
   async uploadDocument(req, res, next) {
     try {
-      const artistId = req.params.id;
-      const type = req.params.type;
-      const documentId = req.params.documentId;
+      const { artistId, type, documentId } = this.#extractParams(req);
+
+      if (!req.file || !req.file.buffer) {
+        throw new ApiError.BadRequest("Файл не был загружен");
+      }
+
       const fileBuffer = req.file.buffer;
 
       await DocumentService.uploadFile(artistId, type, documentId, fileBuffer);
@@ -21,11 +30,9 @@ class DocumentController {
 
   async downloadDocument(req, res, next) {
     try {
-      const artistId = req.params.id;
-      const type = req.params.type;
-      const documentId = req.params.documentId;
+      const { artistId, type, documentId } = this.#extractParams(req);
 
-      const fileBuffer = await DocumentService.downloadFile(
+      const fileStream = await DocumentService.downloadFileStream(
         artistId,
         type,
         documentId
@@ -36,7 +43,7 @@ class DocumentController {
         "Content-Disposition",
         `attachment; filename="${documentId}.pdf"`
       );
-      res.send(fileBuffer);
+      fileStream.pipe(res);
     } catch (e) {
       next(e);
     }
@@ -44,9 +51,7 @@ class DocumentController {
 
   async deleteDocument(req, res, next) {
     try {
-      const artistId = req.params.id;
-      const type = req.params.type;
-      const documentId = req.params.documentId;
+      const { artistId, type, documentId } = this.#extractParams(req);
 
       await DocumentService.deleteFile(artistId, type, documentId);
 
