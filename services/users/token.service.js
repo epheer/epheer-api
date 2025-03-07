@@ -18,7 +18,7 @@ class TokenService {
     };
   }
 
-  validateToken(token, secret) {
+  #validateToken(token, secret) {
     try {
       const userData = jwt.verify(token, secret);
       return userData;
@@ -29,11 +29,11 @@ class TokenService {
   }
 
   validateAccessToken(token) {
-    return this.validateToken(token, process.env.JWT_ACCESS_SECRET);
+    return this.#validateToken(token, process.env.JWT_ACCESS_SECRET);
   }
 
   validateRefreshToken(token) {
-    return this.validateToken(token, process.env.JWT_REFRESH_SECRET);
+    return this.#validateToken(token, process.env.JWT_REFRESH_SECRET);
   }
 
   async saveToken(userId, refreshToken) {

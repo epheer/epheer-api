@@ -168,7 +168,7 @@ class ReleaseService {
     return new FullReleaseDto(release);
   }
 
-  _buildFilter(filterOptions, searchQuery, artistIds = null) {
+  #buildFilter(filterOptions, searchQuery, artistIds = null) {
     const filter = {};
 
     if (artistIds) {
@@ -190,7 +190,7 @@ class ReleaseService {
     return filter;
   }
 
-  _buildSort(sortOptions, statusOrder) {
+  #buildSort(sortOptions, statusOrder) {
     const sort = {};
 
     sort.$expr = {
@@ -216,7 +216,7 @@ class ReleaseService {
     return sort;
   }
 
-  async _paginate(filter, sort, page, limit) {
+  async #paginate(filter, sort, page, limit) {
     if (page < 1 || limit < 1) {
       throw new ApiError.BadRequest("Неверные параметры пагинации");
     }
@@ -267,10 +267,10 @@ class ReleaseService {
       draft: 6,
     };
 
-    const filter = this._buildFilter(filterOptions, searchQuery, artistIds);
-    const sort = this._buildSort(sortOptions, statusOrder);
+    const filter = this.#buildFilter(filterOptions, searchQuery, artistIds);
+    const sort = this.#buildSort(sortOptions, statusOrder);
 
-    return this._paginate(filter, sort, page, limit);
+    return this.#paginate(filter, sort, page, limit);
   }
 
   async getAllReleases(filterOptions, sortOptions, searchQuery, page, limit) {
@@ -283,10 +283,10 @@ class ReleaseService {
       draft: 6,
     };
 
-    const filter = this._buildFilter(filterOptions, searchQuery);
-    const sort = this._buildSort(sortOptions, statusOrder);
+    const filter = this.#buildFilter(filterOptions, searchQuery);
+    const sort = this.#buildSort(sortOptions, statusOrder);
 
-    return this._paginate(filter, sort, page, limit);
+    return this.#paginate(filter, sort, page, limit);
   }
 }
 

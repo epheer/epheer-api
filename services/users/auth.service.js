@@ -5,7 +5,7 @@ const UserDto = require("../../dtos/users/user.dto");
 const ApiError = require("../../exceptions/api-error");
 
 class AuthService {
-  async findUserById(id) {
+  async #findUserById(id) {
     const user = await User.findById(id);
     if (!user) {
       throw ApiError.NotFoundError("Пользователь не найден");
@@ -59,7 +59,7 @@ class AuthService {
     if (!userData || !tokenFromDb) {
       throw ApiError.UnauthorizedError();
     }
-    const user = await User.findById(userData.id);
+    const user = await this.#findUserById(userData.id);
     const userDto = new UserDto(user);
     const tokens = TokenService.generateTokens({ ...userDto });
 
@@ -68,21 +68,21 @@ class AuthService {
   }
 
   async deactivate(id) {
-    const user = await this.findUserById(id);
+    const user = await this.#findUserById(id);
     user.is_active = false;
     await user.save();
     return { message: `Аккаунт пользователя ${id} деактивирован` };
   }
 
   async unblock(id) {
-    const user = await this.findUserById(id);
+    const user = await this.#findUserById(id);
     user.is_active = true;
     await user.save();
     return { message: `Аккаунт пользователя ${id} разблокирован` };
   }
 
   async changePassword(id, password) {
-    const user = await this.findUserById(id);
+    const user = await this.#findUserById(id);
     const hash = await bcrypt.hash(password, 10);
     user.hash = hash;
     await user.save();
@@ -90,7 +90,7 @@ class AuthService {
   }
 
   async changeEmail(id, email) {
-    const user = await this.findUserById(id);
+    const user = await this.#findUserById(id);
     user.email = email;
     await user.save();
     return { message: "Email успешно изменен" };

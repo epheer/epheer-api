@@ -20,7 +20,7 @@ class AuthController {
     res.cookie("refreshToken", refreshToken, {
       maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      secure: true, // Только для HTTPS
+      secure: true,
     });
   }
 

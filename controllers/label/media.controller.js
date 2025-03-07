@@ -131,12 +131,6 @@ class MediaController {
     }
   }
 
-  /**
-   * Удаление файла (обложка или трек)
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Next middleware function
-   */
   async deleteFile(req, res, next) {
     try {
       const artistId = req.params.id;
