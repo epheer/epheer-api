@@ -5,9 +5,29 @@ const access = require("../../../middlewares/access.middleware");
 
 const router = express.Router();
 
-router.patch("/:id/name", auth, access("root"), controller.updateStageName);
-router.patch("/:id/manager", auth, access("root"), controller.linkManager);
-router.get("/:ids", auth, access("label"), controller.getArtistsByIds);
-router.get("/", auth, access("root"), controller.getAllArtists);
+router.patch(
+  "/:id/name",
+  auth,
+  access("root"),
+  controller.updateStageName.bind(controller)
+);
+router.patch(
+  "/:id/manager",
+  auth,
+  access("root"),
+  controller.linkManager.bind(controller)
+);
+router.get(
+  "/:ids",
+  auth,
+  access("label"),
+  controller.getArtistsByIds.bind(controller)
+);
+router.get(
+  "/",
+  auth,
+  access("root"),
+  controller.getAllArtists.bind(controller)
+);
 
 module.exports = router;

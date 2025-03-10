@@ -9,8 +9,13 @@ router.get(
   "/:id/artists",
   auth,
   access("manager"),
-  controller.getArtistsByManager
+  controller.getArtistsByManager.bind(controller)
 );
-router.get("/", auth, access("root"), controller.getAllManagers);
+router.get(
+  "/",
+  auth,
+  access("root"),
+  controller.getAllManagers.bind(controller)
+);
 
 module.exports = router;

@@ -18,21 +18,21 @@ router.post(
   auth,
   access("root"),
   upload.single("file"),
-  controller.uploadDocument
+  controller.uploadDocument.bind(controller)
 );
 
 router.get(
   "/:id/:type/:documentId",
   auth,
   access("label"),
-  controller.downloadDocument
+  controller.downloadDocument.bind(controller)
 );
 
 router.delete(
   "/:id/:type/:documentId",
   auth,
   access("root"),
-  controller.deleteDocument
+  controller.deleteDocument.bind(controller)
 );
 
 module.exports = router;

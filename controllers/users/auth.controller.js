@@ -56,6 +56,9 @@ class AuthController {
 
   async logout(req, res, next) {
     try {
+      if (!req.cookies) {
+        throw ApiError.UnauthorizedError();
+      }
       const { refreshToken } = req.cookies;
       const token = await authService.logout(refreshToken);
       res.clearCookie("refreshToken");

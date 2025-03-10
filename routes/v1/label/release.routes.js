@@ -5,17 +5,47 @@ const access = require("../../../middlewares/access.middleware");
 
 const router = express.Router();
 
-router.post("/:id/new", auth, access("label"), controller.createRelease);
-router.put("/:id", auth, access("label"), controller.updateRelease);
-router.patch("/:id", auth, access("label"), controller.saveRelease);
-router.patch("/:id/status", auth, access("manager"), controller.updateStatus);
-router.get("/:id", auth, access("label"), controller.getReleaseById);
+router.post(
+  "/:id/new",
+  auth,
+  access("label"),
+  controller.createRelease.bind(controller)
+);
+router.put(
+  "/:id",
+  auth,
+  access("label"),
+  controller.updateRelease.bind(controller)
+);
+router.patch(
+  "/:id",
+  auth,
+  access("label"),
+  controller.saveRelease.bind(controller)
+);
+router.patch(
+  "/:id/status",
+  auth,
+  access("manager"),
+  controller.updateStatus.bind(controller)
+);
+router.get(
+  "/:id",
+  auth,
+  access("label"),
+  controller.getReleaseById.bind(controller)
+);
 router.get(
   "/artists/:ids",
   auth,
   access("label"),
-  controller.getReleasesByArtists
+  controller.getReleasesByArtists.bind(controller)
 );
-router.get("/", auth, access("root"), controller.getAllReleases);
+router.get(
+  "/",
+  auth,
+  access("root"),
+  controller.getAllReleases.bind(controller)
+);
 
 module.exports = router;

@@ -5,28 +5,53 @@ const access = require("../../../middlewares/access.middleware");
 
 const router = express.Router();
 
-router.post("/:id", auth, access("root"), controller.createContract);
-router.post("/:id/appendix", auth, access("root"), controller.createAppendix);
-router.patch("/:id", auth, access("root"), controller.updateContract);
+router.post(
+  "/:id",
+  auth,
+  access("root"),
+  controller.createContract.bind(controller)
+);
+router.post(
+  "/:id/appendix",
+  auth,
+  access("root"),
+  controller.createAppendix.bind(controller)
+);
+router.patch(
+  "/:id",
+  auth,
+  access("root"),
+  controller.updateContract.bind(controller)
+);
 router.patch(
   "/appendix/:apeendixNumber",
   auth,
   access("root"),
-  controller.updateAppendix
+  controller.updateAppendix.bind(controller)
 );
 router.post(
   "/:id/termination",
   auth,
   access("root"),
-  controller.createTermination
+  controller.createTermination.bind(controller)
 );
 router.patch(
   "/:id/termination",
   auth,
   access("root"),
-  controller.confirmTermination
+  controller.confirmTermination.bind(controller)
 );
-router.get("/:id", auth, access("label"), controller.getContractByArtist);
-router.get("/", auth, access("root"), controller.getAllContracts);
+router.get(
+  "/:id",
+  auth,
+  access("label"),
+  controller.getContractByArtist.bind(controller)
+);
+router.get(
+  "/",
+  auth,
+  access("root"),
+  controller.getAllContracts.bind(controller)
+);
 
 module.exports = router;

@@ -25,7 +25,7 @@ router.post(
   auth,
   access("label"),
   uploadCover.single("file"),
-  controller.uploadCover
+  controller.uploadCover.bind(controller)
 );
 
 router.post(
@@ -33,35 +33,35 @@ router.post(
   auth,
   access("label"),
   uploadTrack.single("file"),
-  controller.uploadTrack
+  controller.uploadTrack.bind(controller)
 );
 
 router.get(
   "/:id/:releaseId/cover/:size",
   auth,
   access("label"),
-  controller.getCover
+  controller.getCover.bind(controller)
 );
 
 router.get(
   "/:id/:releaseId/tracks/:fileName",
   auth,
   access("label"),
-  controller.getTrack
+  controller.getTrack.bind(controller)
 );
 
 router.get(
   "/:id/:releaseId/:fileName/download",
   auth,
   access("label"),
-  controller.downloadFile
+  controller.downloadFile.bind(controller)
 );
 
 router.delete(
   "/:id/:releaseId/:fileName",
   auth,
   access("label"),
-  controller.deleteFile
+  controller.deleteFile.bind(controller)
 );
 
 module.exports = router;
