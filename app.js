@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const xss = require("xss-clean");
 const mongoSanitize = require("express-mongo-sanitize");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const router = require("./routes");
 const errorMiddleware = require("./middlewares/error.middleware");
 require("dotenv").config();
@@ -25,6 +26,7 @@ if (process.env.NODE_ENV === "production") {
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser())
 app.use(xss());
 app.use(mongoSanitize({ allowDots: true }));
 app.use("/", router);
