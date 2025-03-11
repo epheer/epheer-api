@@ -10,5 +10,5 @@ module.exports = function (err, req, res, next) {
   }
   return res
     .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-    .json({ message: "Непредвиденная ошибка" });
+    .json({ message: "Непредвиденная ошибка", details: err.message, errors: err.errors });
 };
