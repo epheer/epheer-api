@@ -76,13 +76,30 @@ class ArtistService {
         stage_name: stageName,
       });
       await artist.save();
-      return new ArtistDto(artist);
+      const result = await Artist.findOne({user: userId}).populate({
+        path: "user",
+        select: "-hash",
+        populate: {
+          path: "info",
+          model: "Info",
+        },
+      })
+      return new ArtistDto(result);
     }
 
     artist.stage_name = stageName;
     await artist.save();
 
-    return new ArtistDto(artist);
+    const result = await Artist.findOne({user: userId}).populate({
+        path: "user",
+        select: "-hash",
+        populate: {
+          path: "info",
+          model: "Info",
+        },
+      })
+
+    return new ArtistDto(result);
   }
 
   async linkManager(artistId, managerId) {
@@ -98,7 +115,16 @@ class ArtistService {
     artist.manager = managerId;
     await artist.save();
 
-    return new ArtistDto(artist);
+     const result = await Artist.findOne({ user: userId }).populate({
+       path: "user",
+       select: "-hash",
+       populate: {
+         path: "info",
+         model: "Info",
+       },
+     });
+
+    return new ArtistDto(result);
   }
 
   async getArtistsByIds(artistIds) {

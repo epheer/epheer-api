@@ -14,11 +14,12 @@ module.exports = class ArtistDto {
     this.firstname = model.user.info.firstname;
     this.patronymic = model.user.info.patronymic ?? "";
     this.contact = model.user.info.contact ?? "";
-    this.manager = {
-      surname: model.manager.info.surname,
-      firstname: model.manager.info.firstname,
-      patronymic: model.manager.info.patronymic ?? "",
-      contact: model.manager.info.contact ?? "",
-    };
+    this.manager =
+      {
+        surname: model.manager.info.surname,
+        firstname: model.manager.info.firstname,
+        patronymic: model.manager.info.patronymic ?? "",
+        contact: model.manager.info.contact ?? "",
+      } ?? "";
   }
 };
