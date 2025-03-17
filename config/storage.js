@@ -8,7 +8,6 @@ const {
 require("dotenv").config();
 const ApiError = require("../exceptions/api-error");
 
-// Проверка обязательных переменных окружения
 const requiredEnvVars = [
   "YC_ENDPOINT",
   "YC_ACCESS_KEY_ID",
@@ -18,7 +17,7 @@ const requiredEnvVars = [
 const missingVars = requiredEnvVars.filter((varName) => !process.env[varName]);
 
 if (missingVars.length > 0) {
-  throw new ApiError.InternalServerError();
+  throw ApiError.InternalServerError();
 }
 
 // Настройка клиента S3 для работы с Yandex Cloud Object Storage
@@ -86,7 +85,7 @@ const getFile = async (key) => {
     const response = await s3Client.send(command);
 
     if (!response.Body) {
-      throw new Error("Тело ответа отсутствует.");
+      throw ApiError.BadRequest("Тело ответа отсутствует.");
     }
 
     const arrayBuffer = await response.Body.transformToByteArray();
@@ -94,7 +93,7 @@ const getFile = async (key) => {
   } catch (error) {
     if (error.name === "NoSuchKey") {
       console.error(`Файл "${key}" не найден.`);
-      throw new ApiError.NotFoundError(`Файл "${key}" не найден.`);
+      throw ApiError.NotFoundError(`Файл "${key}" не найден.`);
     }
     console.error("Ошибка при получении файла:", error);
     throw ApiError.InternalServerError;
@@ -117,7 +116,7 @@ const getFileAsStream = async (key) => {
     const response = await s3Client.send(command);
 
     if (!response.Body) {
-      throw new Error("Тело ответа отсутствует.");
+      throw ApiError.BadRequest("Тело ответа отсутствует.");
     }
 
     console.log(`Получен поток для файла "${key}".`);
@@ -125,7 +124,7 @@ const getFileAsStream = async (key) => {
   } catch (error) {
     if (error.name === "NoSuchKey") {
       console.error(`Файл "${key}" не найден.`);
-      throw new ApiError.NotFoundError(`Файл "${key}" не найден.`);
+      throw ApiError.NotFoundError(`Файл "${key}" не найден.`);
     }
     console.error("Ошибка при получении файла через поток:", error);
     throw ApiError.InternalServerError;

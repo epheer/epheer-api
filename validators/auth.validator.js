@@ -23,8 +23,8 @@ const registerSchema = Joi.object({
 
 // Валидация для входа
 const loginSchema = Joi.object({
-  login: Joi.string().pattern(loginPattern).required(),
-  password: Joi.string().pattern(passwordComplexity).required(),
+  login: Joi.string().required(),
+  password: Joi.string().required(),
 });
 
 // Валидация для изменения пароля
