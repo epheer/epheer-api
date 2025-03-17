@@ -1,0 +1,73 @@
+name: CI/CD Pipeline for epheer-api
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build Docker image
+        run: docker build -t epheer-api .
+
+      - name: Save Docker image as artifact
+        run: |
+          mkdir -p docker-image
+          docker save epheer-api > docker-image/image.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-image
+          path: docker-image
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOYER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan 188.225.57.116 >> ~/.ssh/known_hosts
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-image
+          path: docker-image
+
+      - name: Deploy to server
+        run: |
+          scp docker-image/image.tar deployer@188.225.57.116:/var/www/api.epheer.ru
+          ssh deployer@188.225.57.116 <<EOF
+            cd /var/www/api.epheer.ru
+            docker load < image.tar
+            docker stop epheer-api-container || true
+            docker rm epheer-api-container || true
+            docker run -d \
+              --name epheer-api-container \
+              -p 3000:3000 \
+              -e NODE_ENV=${{ secrets.NODE_ENV }} \
+              -e PORT=${{ secrets.PORT }} \
+              -e CLIENT_URL=${{ secrets.CLIENT_URL }} \
+              -e MONGO_URL=${{ secrets.MONGO_URL }} \
+              -e JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }} \
+              -e JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }} \
+              -e YC_ACCESS_KEY_ID=${{ secrets.YC_ACCESS_KEY_ID }} \
+              -e YC_SECRET_ACCESS_KEY=${{ secrets.YC_SECRET_ACCESS_KEY }} \
+              -e YC_BUCKET_NAME=${{ secrets.YC_BUCKET_NAME }} \
+              -e YC_ENDPOINT=${{ secrets.YC_ENDPOINT }} \
+              epheer-api
+          EOF
