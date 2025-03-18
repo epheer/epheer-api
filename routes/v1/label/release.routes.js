@@ -2,6 +2,7 @@ const express = require("express");
 const controller = require("../../../controllers/label/release.controller");
 const auth = require("../../../middlewares/auth.middleware");
 const access = require("../../../middlewares/access.middleware");
+const query = require("../../../middlewares/query.middleware");
 
 const router = express.Router();
 
@@ -38,13 +39,13 @@ router.get(
 router.get(
   "/artists/:ids",
   auth,
-  access("label"),
+  access("label"), query,
   controller.getReleasesByArtists.bind(controller)
 );
 router.get(
   "/",
   auth,
-  access("root"),
+  access("root"), query,
   controller.getAllReleases.bind(controller)
 );
 

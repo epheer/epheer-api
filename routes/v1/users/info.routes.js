@@ -2,6 +2,7 @@ const express = require("express");
 const controller = require("../../../controllers/users/info.controller");
 const auth = require("../../../middlewares/auth.middleware");
 const access = require("../../../middlewares/access.middleware");
+const query = require("../../../middlewares/query.middleware");
 
 const router = express.Router();
 
@@ -17,6 +18,6 @@ router.get(
   access("label"),
   controller.getUsersByIds.bind(controller)
 );
-router.get("/", auth, access("root"), controller.getAllUsers.bind(controller));
+router.get("/", auth, access("root"), query, controller.getAllUsers.bind(controller));
 
 module.exports = router;

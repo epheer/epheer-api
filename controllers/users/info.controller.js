@@ -1,5 +1,6 @@
 const infoService = require("../../services/users/info.service");
 const { HTTP_STATUS } = require("../../config/http-statuses");
+const qs = require("qs");
 
 class InfoController {
   async updateInfo(req, res, next) {
