@@ -28,6 +28,7 @@ if (process.env.NODE_ENV === "production") {
   }
   app.use(cors(corsOptions));
 }
+app.options("*", cors());
 
 app.use(helmet());
 app.use(express.json());
