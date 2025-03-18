@@ -21,7 +21,7 @@ if (process.env.NODE_ENV === "production") {
   app.use(cors(corsOptions));
 } else {
   const corsOptions = {
-    origin: ["http://localhost:3000", "https://lab.epheer.ru", "https://epheer.ru"],
+    origin: ["http://localhost:3000/", "https://lab.epheer.ru/", "https://epheer.ru/"],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
