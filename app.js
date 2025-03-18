@@ -19,8 +19,6 @@ if (process.env.NODE_ENV === "production") {
     credentials: true,
   };
   app.use(cors(corsOptions));
-} else {
-  app.use(cors());
 }
 
 app.use(helmet());
