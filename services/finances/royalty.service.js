@@ -16,7 +16,7 @@ class RoyaltyService {
       await session.abortTransaction();
       throw ApiError.InternalServerError(error.message || "Ошибка транзакции");
     } finally {
-      session.endSession();
+      await session.endSession();
     }
   }
 
@@ -116,8 +116,7 @@ class RoyaltyService {
 
   async getArtistRoyalties(artistId) {
     try {
-      const royalties = await Royalty.find({ artist: artistId });
-      return royalties;
+      return await Royalty.find({artist: artistId});
     } catch (error) {
       throw ApiError.InternalServerError("Ошибка при получении роялти артиста");
     }

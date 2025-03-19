@@ -18,6 +18,6 @@ router.get(
   access("label"),
   controller.getUsersByIds.bind(controller)
 );
-router.get("/", auth, access("root"), query, controller.getAllUsers.bind(controller));
+router.get("/", query, controller.getAllUsers.bind(controller));
 
 module.exports = router;

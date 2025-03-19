@@ -13,9 +13,9 @@ class ContractService {
 
   async #findAppendix(contract, appendixIdentifier) {
     const appendix = contract.appendices.find(
-      (item) =>
-        item.appendix_number === appendixIdentifier ||
-        item._id.equals(appendixIdentifier)
+        (item) =>
+            item.appendix_number === appendixIdentifier ||
+            item._id.equals(appendixIdentifier)
     );
     if (!appendix) {
       throw new ApiError.NotFoundError("Приложение не найдено");
@@ -30,20 +30,19 @@ class ContractService {
     let lastContract = await Contract.findOne({
       contract_number: { $regex: new RegExp(`^${prefix}`) },
     })
-      .sort({ contract_number: -1 })
-      .select("contract_number");
+        .sort({ contract_number: -1 })
+        .select("contract_number");
 
     let nextNumber = 1;
     if (lastContract && lastContract.contract_number) {
       const lastNumber = parseInt(
-        lastContract.contract_number.split("-")[1],
-        10
+          lastContract.contract_number.split("-")[1],
+          10
       );
       nextNumber = lastNumber + 1;
     }
 
-    const contractNumber = `${prefix}${String(nextNumber).padStart(3, "0")}`;
-    return contractNumber;
+    return `${prefix}${String(nextNumber).padStart(3, "0")}`;
   }
 
   async #generateAppendixNumber(contractId) {
@@ -58,7 +57,7 @@ class ContractService {
     const user = await User.findOne({ _id: artistId, role: "artist" });
     if (!user) {
       throw new ApiError.BadRequest(
-        "Регистрация договоров возможна только для артистов"
+          "Регистрация договоров возможна только для артистов"
       );
     }
 
@@ -99,9 +98,9 @@ class ContractService {
     const updateData = this.#filterAllowedFields(data, allowedFields);
 
     const contract = await Contract.findOneAndUpdate(
-      { artist: artistId },
-      { $set: updateData },
-      { new: true }
+        { artist: artistId },
+        { $set: updateData },
+        { new: true }
     );
 
     if (!contract) {
@@ -133,7 +132,7 @@ class ContractService {
     const contract = await this.#findContractByArtistId(artistId);
 
     const existingTermination = contract.appendices.find(
-      (appendix) => appendix.type === "termination"
+        (appendix) => appendix.type === "termination"
     );
     if (existingTermination) {
       throw new ApiError.BadRequest("Расторжение соглашения уже существует");
@@ -174,69 +173,97 @@ class ContractService {
   }
 
   async getContractByArtistId(artistId) {
-    const contract = await this.#findContractByArtistId(artistId);
-    return contract;
+    return await this.#findContractByArtistId(artistId);
   }
 
   async getAllContracts({
-    filterOptions,
-    sortOptions,
-    searchQuery,
-    page,
-    limit,
-  }) {
+                          filterOptions,
+                          sortOptions,
+                          searchQuery,
+                          page,
+                          limit,
+                        }) {
     if (page < 1 || limit < 1) {
       throw new ApiError.BadRequest("Неверные параметры пагинации");
     }
 
     limit = Math.min(limit, 50);
+    const skip = (page - 1) * limit;
 
-    const filter = {};
+    // Фильтр для основного запроса
+    const matchStage = {};
 
     if (filterOptions.type) {
-      filter.appendices = { $elemMatch: { type: filterOptions.type } };
+      matchStage.appendices = { $elemMatch: { type: filterOptions.type } };
     }
 
     if (filterOptions.status) {
-      filter.status = filterOptions.status;
+      matchStage.status = filterOptions.status;
     }
 
     if (searchQuery) {
       const searchRegex = new RegExp(searchQuery, "i");
-      filter.contract_number = { $regex: searchRegex };
+      matchStage.contract_number = { $regex: searchRegex };
     }
 
-    const sort = {};
+    // Сортировка
+    const sortStage = {};
     if (sortOptions.contract_number) {
-      sort.contract_number = sortOptions.contract_number === "asc" ? 1 : -1;
+      sortStage.contract_number =
+          sortOptions.contract_number === "asc" ? 1 : -1;
     }
     if (sortOptions.createdAt) {
-      sort.createdAt = sortOptions.createdAt === "asc" ? 1 : -1;
+      sortStage.createdAt = sortOptions.createdAt === "asc" ? 1 : -1;
     } else {
-      sort.createdAt = -1;
+      sortStage.createdAt = -1;
     }
 
-    const skip = (page - 1) * limit;
-
-    const contracts = await Contract.find(filter)
-      .populate({
-        path: "artist",
-        select: "-hash",
-        populate: {
-          path: "info",
-          model: "Info",
+    const pipeline = [
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "users",
+          localField: "artist",
+          foreignField: "_id",
+          as: "artistInfo",
         },
-      })
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .exec();
+      },
+      { $unwind: "$artistInfo" },
+      {
+        $lookup: {
+          from: "info",
+          localField: "artistInfo.info",
+          foreignField: "_id",
+          as: "artistInfo.info",
+        },
+      },
+      { $unwind: "$artistInfo.info" },
+
+      ...(searchQuery
+          ? [
+            {
+              $match: {
+                $or: [
+                  { "artistInfo.info.surname": new RegExp(searchQuery, "i") },
+                  { "artistInfo.info.firstname": new RegExp(searchQuery, "i") },
+                ],
+              },
+            },
+          ]
+          : []),
+      { $sort: sortStage },
+      { $skip: skip },
+      { $limit: limit },
+    ];
+
+    const contracts = await Contract.aggregate(pipeline);
+
+    const totalPipeline = [...pipeline.slice(0, 4), { $count: "total" }];
+    const totalResult = await Contract.aggregate(totalPipeline);
+    const total = totalResult[0]?.total || 0;
+    const totalPages = Math.ceil(total / limit);
 
     const result = contracts.map((contract) => new ContractDto(contract));
-
-    const total = await Contract.countDocuments(filter);
-    const totalPages = Math.ceil(total / limit);
 
     return {
       data: result,
