@@ -23,6 +23,7 @@ class ArtistService {
 
   #buildFilter(filterOptions, searchQuery) {
     const filter = {};
+
     if (filterOptions.managerId) {
       filter.manager = filterOptions.managerId;
     }
@@ -31,8 +32,8 @@ class ArtistService {
       const searchRegex = new RegExp(searchQuery, "i");
       filter.$or = [
         { stage_name: searchRegex },
-        { "user.info.surname": searchRegex },
-        { "user.info.firstname": searchRegex },
+        { "userInfo.surname": searchRegex },
+        { "userInfo.firstname": searchRegex },
       ];
     }
 
@@ -41,19 +42,20 @@ class ArtistService {
 
   #buildSort(sortOptions) {
     const sort = {};
+
     if (sortOptions.stage_name) {
       sort.stage_name = sortOptions.stage_name === "asc" ? 1 : -1;
     }
     if (sortOptions.surname) {
-      sort["user.info.surname"] = sortOptions.surname === "asc" ? 1 : -1;
+      sort["userInfo.surname"] = sortOptions.surname === "asc" ? 1 : -1;
     }
     if (sortOptions.firstname) {
-      sort["user.info.firstname"] = sortOptions.firstname === "asc" ? 1 : -1;
+      sort["userInfo.firstname"] = sortOptions.firstname === "asc" ? 1 : -1;
     }
     if (sortOptions.createdAt) {
-      sort["user.createdAt"] = sortOptions.createdAt === "asc" ? 1 : -1;
+      sort["userInfo.createdAt"] = sortOptions.createdAt === "asc" ? 1 : -1;
     } else {
-      sort["user.createdAt"] = -1;
+      sort["userInfo.createdAt"] = -1; // Сортировка по умолчанию
     }
 
     return sort;
@@ -139,33 +141,40 @@ class ArtistService {
 
     limit = Math.min(limit, MAX_LIMIT);
 
-    const filter = this.#buildFilter(filterOptions, searchQuery);
-    const sort = this.#buildSort(sortOptions);
+    const matchStage = this.#buildFilter(filterOptions, searchQuery);
+    const sortStage = this.#buildSort(sortOptions);
     const skip = (page - 1) * limit;
 
-    const artists = await Artist.find(filter)
-      .populate({
-        path: "user",
-        select: "-hash",
-        populate: {
-          path: "info",
-          model: "Info",
+    const pipeline = [
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "userInfo",
         },
-      })
-      .populate({
-        path: "manager",
-        select: "-hash",
-        populate: {
-          path: "info",
-          model: "Info",
+      },
+      { $unwind: "$userInfo" },
+      {
+        $lookup: {
+          from: "info",
+          localField: "userInfo.info",
+          foreignField: "_id",
+          as: "userInfo.info",
         },
-      })
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .exec();
+      },
+      { $unwind: "$userInfo.info" },
+      { $match: matchStage },
+      { $sort: sortStage },
+      { $skip: skip },
+      { $limit: limit },
+    ];
 
-    const total = await Artist.countDocuments(filter);
+    const artists = await Artist.aggregate(pipeline);
+
+    const totalPipeline = [...pipeline.slice(0, 4), { $count: "total" }];
+    const totalResult = await Artist.aggregate(totalPipeline);
+    const total = totalResult[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
     return {

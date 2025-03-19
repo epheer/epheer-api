@@ -25,7 +25,7 @@ class ReleaseService {
 
     if (existingDraft) {
       throw new ApiError.BadRequest(
-        "Черновик релиза уже существует, удалите его или продолжайте его редактирование"
+          "Черновик релиза уже существует, удалите его или продолжайте его редактирование"
       );
     }
 
@@ -98,7 +98,7 @@ class ReleaseService {
     for (const field of requiredFields) {
       if (!release[field]) {
         throw new ApiError.BadRequest(
-          `Отсутствует обязательное поле: ${field}`
+            `Отсутствует обязательное поле: ${field}`
         );
       }
     }
@@ -111,9 +111,9 @@ class ReleaseService {
 
     if (!release.tracks || release.tracks.length < minTracks[release.type]) {
       throw new ApiError.BadRequest(
-        `Требуется минимум ${
-          minTracks[release.type]
-        } треков для выбранного типа релиза`
+          `Требуется минимум ${
+              minTracks[release.type]
+          } треков для выбранного типа релиза`
       );
     }
 
@@ -224,17 +224,22 @@ class ReleaseService {
     limit = Math.min(limit, MAX_LIMIT);
     const skip = (page - 1) * limit;
 
-    const releases = await Release.find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .exec();
+    const pipeline = [
+      { $match: filter },
+      { $sort: sort },
+      { $skip: skip },
+      { $limit: limit },
+    ];
+
+    const releases = await Release.aggregate(pipeline);
 
     if (releases.length === 0) {
       throw new ApiError.NotFoundError("Релизы не найдены");
     }
 
-    const total = await Release.countDocuments(filter);
+    const totalPipeline = [{ $match: filter }, { $count: "total" }];
+    const totalResult = await Release.aggregate(totalPipeline);
+    const total = totalResult[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
     const dtoReleases = releases.map((release) => new ReleaseDto(release));
@@ -251,12 +256,12 @@ class ReleaseService {
   }
 
   async getReleasesByArtists(
-    artistIds,
-    filterOptions,
-    sortOptions,
-    searchQuery,
-    page,
-    limit
+      artistIds,
+      filterOptions,
+      sortOptions,
+      searchQuery,
+      page,
+      limit
   ) {
     const statusOrder = {
       pending: 1,

@@ -72,10 +72,10 @@ class InfoService {
   #buildSort(sortOptions) {
     const sort = {};
     if (sortOptions.createdAt) {
-      sort.createdAt = sortOptions.createdAt === "asc" ? 1 : -1;
+      sort["user[createdAt]"] = sortOptions.createdAt === "asc" ? 1 : -1;
     }
     if (sortOptions.role) {
-      sort["user.role"] = sortOptions.role === "asc" ? 1 : -1;
+      sort["user[role]"] = sortOptions.role === "asc" ? 1 : -1;
     }
     return sort;
   }
@@ -87,24 +87,56 @@ class InfoService {
 
     limit = Math.min(limit, MAX_LIMIT);
 
-    const filter = this.#buildFilter(filterOptions, searchQuery);
-    const sort = this.#buildSort(sortOptions);
+    const matchStage = {};
+    if (filterOptions.role) {
+      matchStage["userInfo.role"] = filterOptions.role;
+    }
+
+    if (searchQuery) {
+      const searchRegex = new RegExp(searchQuery, "i");
+      matchStage.$or = [
+        { "userInfo.login": searchRegex },
+        { "userInfo.email": searchRegex },
+        { surname: searchRegex },
+        { firstname: searchRegex },
+        { contact: searchRegex },
+      ];
+    }
+
+    const sortStage = {};
+    if (sortOptions.createdAt) {
+      sortStage["userInfo.createdAt"] = sortOptions.createdAt === "asc" ? 1 : -1;
+    }
+    if (sortOptions.role) {
+      sortStage["userInfo.role"] = sortOptions.role === "asc" ? 1 : -1;
+    }
+
     const skip = (page - 1) * limit;
 
-    const infos = await Info.find(filter)
-      .populate("user", "-hash")
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .exec();
+    const pipeline = [
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "userInfo",
+        },
+      },
+      { $unwind: "$userInfo" },
+      { $match: matchStage },
+      { $sort: sortStage },
+      { $skip: skip },
+      { $limit: limit },
+    ];
 
-    const total = await Info.countDocuments(filter);
-    const totalPages = Math.ceil(total / limit);
+    const infos = await Info.aggregate(pipeline);
+    const total = await Info.aggregate([...pipeline.slice(0, 3), { $count: "total" }]);
+    const totalPages = Math.ceil((total[0]?.total || 0) / limit);
 
     return {
       data: infos.map((info) => new FullInfoDto(info)),
       pagination: {
-        total,
+        total: total[0]?.total || 0,
         totalPages,
         currentPage: page,
         limit,

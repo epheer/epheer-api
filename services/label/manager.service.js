@@ -42,8 +42,8 @@ class ManagerService {
     if (searchQuery) {
       const searchRegex = new RegExp(searchQuery, "i");
       filter.$or = [
-        { "user.info.surname": searchRegex },
-        { "user.info.firstname": searchRegex },
+        { "info.surname": searchRegex },
+        { "info.firstname": searchRegex },
       ];
     }
     return filter;
@@ -52,15 +52,15 @@ class ManagerService {
   #buildSort(sortOptions) {
     const sort = {};
     if (sortOptions.surname) {
-      sort["user.info.surname"] = sortOptions.surname === "asc" ? 1 : -1;
+      sort["info.surname"] = sortOptions.surname === "asc" ? 1 : -1;
     }
     if (sortOptions.firstname) {
-      sort["user.info.firstname"] = sortOptions.firstname === "asc" ? 1 : -1;
+      sort["info.firstname"] = sortOptions.firstname === "asc" ? 1 : -1;
     }
     if (sortOptions.createdAt) {
-      sort["user.createdAt"] = sortOptions.createdAt === "asc" ? 1 : -1;
+      sort["createdAt"] = sortOptions.createdAt === "asc" ? 1 : -1;
     } else {
-      sort["user.createdAt"] = -1;
+      sort["createdAt"] = -1;
     }
     return sort;
   }
@@ -72,24 +72,36 @@ class ManagerService {
 
     limit = Math.min(limit, MAX_LIMIT);
 
-    const filter = this.#buildFilter(searchQuery);
-    const sort = this.#buildSort(sortOptions);
+    const matchStage = this.#buildFilter(searchQuery);
+    const sortStage = this.#buildSort(sortOptions);
     const skip = (page - 1) * limit;
 
-    const managers = await User.find({
-      ...filter,
-      $or: [{ role: "root" }, { role: "manager" }],
-    })
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .exec();
+    const pipeline = [
+      {
+        $match: {
+          $or: [{ role: "root" }, { role: "manager" }],
+        },
+      },
+      {
+        $lookup: {
+          from: "info",
+          localField: "info",
+          foreignField: "_id",
+          as: "info",
+        },
+      },
+      { $unwind: "$info" },
+      { $match: matchStage },
+      { $sort: sortStage },
+      { $skip: skip },
+      { $limit: limit },
+    ];
 
-    if (managers.length === 0) {
-      throw ApiError.NotFoundError("Менеджеры не найдены");
-    }
+    const managers = await User.aggregate(pipeline);
 
-    const total = await User.countDocuments(filter);
+    const totalPipeline = [...pipeline.slice(0, 4), { $count: "total" }];
+    const totalResult = await User.aggregate(totalPipeline);
+    const total = totalResult[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
     return {
