@@ -32,8 +32,8 @@ class ArtistService {
       const searchRegex = new RegExp(searchQuery, "i");
       filter.$or = [
         { stage_name: searchRegex },
-        { "userInfo.surname": searchRegex },
-        { "userInfo.firstname": searchRegex },
+        { "userInfo.info.surname": searchRegex },
+        { "userInfo.info.firstname": searchRegex },
       ];
     }
 
@@ -47,15 +47,15 @@ class ArtistService {
       sort.stage_name = sortOptions.stage_name === "asc" ? 1 : -1;
     }
     if (sortOptions.surname) {
-      sort["userInfo.surname"] = sortOptions.surname === "asc" ? 1 : -1;
+      sort["userInfo.info.surname"] = sortOptions.surname === "asc" ? 1 : -1;
     }
     if (sortOptions.firstname) {
-      sort["userInfo.firstname"] = sortOptions.firstname === "asc" ? 1 : -1;
+      sort["userInfo.info.firstname"] = sortOptions.firstname === "asc" ? 1 : -1;
     }
     if (sortOptions.createdAt) {
       sort["userInfo.createdAt"] = sortOptions.createdAt === "asc" ? 1 : -1;
     } else {
-      sort["userInfo.createdAt"] = -1; // Сортировка по умолчанию
+      sort["userInfo.createdAt"] = -1;
     }
 
     return sort;
@@ -93,7 +93,7 @@ class ArtistService {
 
     if (manager.role !== "manager" && manager.role !== "root") {
       throw ApiError.BadRequest(
-        "Указанный пользователь не является менеджером"
+          "Указанный пользователь не является менеджером"
       );
     }
 
@@ -113,23 +113,23 @@ class ArtistService {
     }
 
     const artists = await Artist.find({ _id: { $in: artistIds } })
-      .populate({
-        path: "user",
-        select: "-hash",
-        populate: {
-          path: "info",
-          model: "Info",
-        },
-      })
-      .populate({
-        path: "manager",
-        select: "-hash",
-        populate: {
-          path: "info",
-          model: "Info",
-        },
-      })
-      .exec();
+        .populate({
+          path: "user",
+          select: "-hash",
+          populate: {
+            path: "info",
+            model: "Info",
+          },
+        })
+        .populate({
+          path: "manager",
+          select: "-hash",
+          populate: {
+            path: "info",
+            model: "Info",
+          },
+        })
+        .exec();
 
     return artists.map((artist) => new ArtistDto(artist));
   }
@@ -155,6 +155,7 @@ class ArtistService {
         },
       },
       { $unwind: "$userInfo" },
+
       {
         $lookup: {
           from: "info",
@@ -164,21 +165,68 @@ class ArtistService {
         },
       },
       { $unwind: "$userInfo.info" },
+
+      {
+        $lookup: {
+          from: "users",
+          localField: "manager",
+          foreignField: "_id",
+          as: "managerInfo",
+        },
+      },
+      { $unwind: { path: "$managerInfo", preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: "info",
+          localField: "managerInfo.info",
+          foreignField: "_id",
+          as: "managerInfo.info",
+        },
+      },
+      { $unwind: { path: "$managerInfo.info", preserveNullAndEmptyArrays: true } },
+
       { $match: matchStage },
+
+      {
+        $addFields: {
+          id: "$_id",
+          surname: "$userInfo.info.surname",
+          firstname: "$userInfo.info.firstname",
+          patronymic: "$userInfo.info.patronymic",
+          contact: "$userInfo.info.contact",
+          manager: {
+            surname: "$managerInfo.info.surname",
+            firstname: "$managerInfo.info.firstname",
+            patronymic: "$managerInfo.info.patronymic",
+            contact: "$managerInfo.info.contact",
+          },
+        },
+      },
+
       { $sort: sortStage },
+
       { $skip: skip },
       { $limit: limit },
     ];
 
     const artists = await Artist.aggregate(pipeline);
 
-    const totalPipeline = [...pipeline.slice(0, 4), { $count: "total" }];
+    const totalPipeline = [...pipeline.slice(0, 6), { $count: "total" }];
     const totalResult = await Artist.aggregate(totalPipeline);
     const total = totalResult[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: artists.map((artist) => new ArtistDto(artist)),
+      data: artists.map((artist) => ({
+        id: artist.id,
+        stage_name: artist.stage_name,
+        surname: artist.surname,
+        firstname: artist.firstname,
+        patronymic: artist.patronymic,
+        contact: artist.contact,
+        manager: artist.manager,
+      })),
       pagination: {
         total,
         totalPages,

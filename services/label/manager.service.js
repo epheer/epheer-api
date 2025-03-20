@@ -8,23 +8,23 @@ const MAX_LIMIT = 50;
 class ManagerService {
   async #getArtistsByManagerId(managerId) {
     const artists = await Artist.find({ manager: managerId })
-      .populate({
-        path: "user",
-        select: "-hash",
-        populate: {
-          path: "info",
-          model: "Info",
-        },
-      })
-      .populate({
-        path: "manager",
-        select: "-hash",
-        populate: {
-          path: "info",
-          model: "Info",
-        },
-      })
-      .exec();
+        .populate({
+          path: "user",
+          select: "-hash",
+          populate: {
+            path: "info",
+            model: "Info",
+          },
+        })
+        .populate({
+          path: "manager",
+          select: "-hash",
+          populate: {
+            path: "info",
+            model: "Info",
+          },
+        })
+        .exec();
 
     if (artists.length === 0) {
       throw ApiError.NotFoundError("Артисты не найдены");
@@ -82,6 +82,7 @@ class ManagerService {
           $or: [{ role: "root" }, { role: "manager" }],
         },
       },
+
       {
         $lookup: {
           from: "info",
@@ -91,8 +92,21 @@ class ManagerService {
         },
       },
       { $unwind: "$info" },
+
       { $match: matchStage },
+
+      {
+        $addFields: {
+          id: "$_id",
+          surname: "$info.surname",
+          firstname: "$info.firstname",
+          patronymic: "$info.patronymic",
+          contact: "$info.contact",
+        },
+      },
+
       { $sort: sortStage },
+
       { $skip: skip },
       { $limit: limit },
     ];
@@ -105,7 +119,14 @@ class ManagerService {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: managers.map((manager) => new ManagerDto(manager)),
+      data: managers.map((manager) => ({
+        id: manager.id,
+        role: manager.role,
+        surname: manager.surname,
+        firstname: manager.firstname,
+        patronymic: manager.patronymic,
+        contact: manager.contact,
+      })),
       pagination: {
         total,
         totalPages,
