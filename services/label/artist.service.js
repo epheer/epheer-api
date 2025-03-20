@@ -159,12 +159,12 @@ class ArtistService {
       {
         $lookup: {
           from: "info",
-          localField: "userInfo.info",
-          foreignField: "_id",
+          localField: "userInfo._id",
+          foreignField: "user",
           as: "userInfo.info",
         },
       },
-      { $unwind: "$userInfo.info" },
+      { $unwind: { path: "$userInfo.info", preserveNullAndEmptyArrays: true } },
 
       {
         $lookup: {
@@ -179,8 +179,8 @@ class ArtistService {
       {
         $lookup: {
           from: "info",
-          localField: "managerInfo.info",
-          foreignField: "_id",
+          localField: "managerInfo._id",
+          foreignField: "user",
           as: "managerInfo.info",
         },
       },
@@ -211,6 +211,8 @@ class ArtistService {
     ];
 
     const artists = await Artist.aggregate(pipeline);
+    const user = await User.findById("67d97539145a462aa20bcc08").populate("info");
+    console.log(user.info);
 
     const totalPipeline = [...pipeline.slice(0, 6), { $count: "total" }];
     const totalResult = await Artist.aggregate(totalPipeline);
