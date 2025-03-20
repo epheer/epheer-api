@@ -190,7 +190,6 @@ class ContractService {
     limit = Math.min(limit, 50);
     const skip = (page - 1) * limit;
 
-    // Фильтр для основного запроса
     const matchStage = {};
 
     if (filterOptions.type) {
@@ -206,7 +205,6 @@ class ContractService {
       matchStage.contract_number = { $regex: searchRegex };
     }
 
-    // Сортировка
     const sortStage = {};
     if (sortOptions.contract_number) {
       sortStage.contract_number =

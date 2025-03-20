@@ -106,7 +106,7 @@ class InfoService {
 
       {
         $addFields: {
-          id: "$_id",
+          id: "$userInfo._id",
           login: "$userInfo.login",
           role: "$userInfo.role",
           email: "$userInfo.email",
