@@ -31,17 +31,17 @@ class InfoController {
   async getAllUsers(req, res, next) {
     try {
       const filterOptions = req.query.filter || {};
-      const sortOptions = req.query.sort || {};
+      const sortOptions = req.query.sort || { createdAt: "desc" };
       const searchQuery = req.query.search || "";
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
 
       const usersInfo = await infoService.getAllUsers(
-        filterOptions,
-        sortOptions,
-        searchQuery,
-        page,
-        limit
+          filterOptions,
+          sortOptions,
+          searchQuery,
+          page,
+          limit
       );
 
       return res.status(HTTP_STATUS.OK).json(usersInfo);

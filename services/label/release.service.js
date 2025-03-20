@@ -226,26 +226,59 @@ class ReleaseService {
 
     const pipeline = [
       { $match: filter },
+
+      {
+        $lookup: {
+          from: "users",
+          localField: "artist.user_id",
+          foreignField: "_id",
+          as: "artistInfo",
+        },
+      },
+      { $unwind: "$artistInfo" },
+
+      {
+        $lookup: {
+          from: "info",
+          localField: "artistInfo.info",
+          foreignField: "_id",
+          as: "artistInfo.info",
+        },
+      },
+      { $unwind: "$artistInfo.info" },
+
+      {
+        $addFields: {
+          id: "$_id",
+          name: "$name",
+          type: "$type",
+          date: "$date",
+          cover: "$cover_key",
+          feat: "$feat",
+          status: "$status.label",
+          artist: {
+            stage_name: "$artist.stage_name",
+            surname: "$artistInfo.info.surname",
+            firstname: "$artistInfo.info.firstname",
+          },
+        },
+      },
+
       { $sort: sort },
+
       { $skip: skip },
       { $limit: limit },
     ];
 
     const releases = await Release.aggregate(pipeline);
 
-    if (releases.length === 0) {
-      throw new ApiError.NotFoundError("Релизы не найдены");
-    }
-
-    const totalPipeline = [{ $match: filter }, { $count: "total" }];
+    const totalPipeline = [...pipeline.slice(0, 4), { $count: "total" }];
     const totalResult = await Release.aggregate(totalPipeline);
     const total = totalResult[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
-    const dtoReleases = releases.map((release) => new ReleaseDto(release));
-
     return {
-      data: dtoReleases,
+      data: releases.map((release) => new ReleaseDto(release)),
       pagination: {
         total,
         totalPages,

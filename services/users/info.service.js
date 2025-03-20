@@ -38,13 +38,13 @@ class InfoService {
   async getUsersByIds(userIds) {
     if (!Array.isArray(userIds) || userIds.length === 0) {
       throw new ApiError.BadRequest(
-        "Неверный формат или пустой список ID пользователей"
+          "Неверный формат или пустой список ID пользователей"
       );
     }
 
     const infos = await Info.find({ user: { $in: userIds } })
-      .populate("user", "-hash")
-      .exec();
+        .populate("user", "-hash")
+        .exec();
 
     return infos.map((info) => new FullInfoDto(info));
   }
@@ -52,14 +52,14 @@ class InfoService {
   #buildFilter(filterOptions, searchQuery) {
     const filter = {};
     if (filterOptions.role) {
-      filter["user.role"] = filterOptions.role;
+      filter["userInfo.role"] = filterOptions.role;
     }
 
     if (searchQuery) {
       const searchRegex = new RegExp(searchQuery, "i");
       filter.$or = [
-        { "user.login": searchRegex },
-        { "user.email": searchRegex },
+        { "userInfo.login": searchRegex },
+        { "userInfo.email": searchRegex },
         { surname: searchRegex },
         { firstname: searchRegex },
         { contact: searchRegex },
@@ -72,10 +72,10 @@ class InfoService {
   #buildSort(sortOptions) {
     const sort = {};
     if (sortOptions.createdAt) {
-      sort["user[createdAt]"] = sortOptions.createdAt === "asc" ? 1 : -1;
+      sort["userInfo.createdAt"] = sortOptions.createdAt === "asc" ? 1 : -1;
     }
     if (sortOptions.role) {
-      sort["user[role]"] = sortOptions.role === "asc" ? 1 : -1;
+      sort["userInfo.role"] = sortOptions.role === "asc" ? 1 : -1;
     }
     return sort;
   }
@@ -87,30 +87,8 @@ class InfoService {
 
     limit = Math.min(limit, MAX_LIMIT);
 
-    const matchStage = {};
-    if (filterOptions.role) {
-      matchStage["userInfo.role"] = filterOptions.role;
-    }
-
-    if (searchQuery) {
-      const searchRegex = new RegExp(searchQuery, "i");
-      matchStage.$or = [
-        { "userInfo.login": searchRegex },
-        { "userInfo.email": searchRegex },
-        { surname: searchRegex },
-        { firstname: searchRegex },
-        { contact: searchRegex },
-      ];
-    }
-
-    const sortStage = {};
-    if (sortOptions.createdAt) {
-      sortStage["userInfo.createdAt"] = sortOptions.createdAt === "asc" ? 1 : -1;
-    }
-    if (sortOptions.role) {
-      sortStage["userInfo.role"] = sortOptions.role === "asc" ? 1 : -1;
-    }
-
+    const matchStage = this.#buildFilter(filterOptions, searchQuery);
+    const sortStage = this.#buildSort(sortOptions);
     const skip = (page - 1) * limit;
 
     const pipeline = [
@@ -123,20 +101,48 @@ class InfoService {
         },
       },
       { $unwind: "$userInfo" },
+
       { $match: matchStage },
+
+      {
+        $addFields: {
+          id: "$_id",
+          login: "$userInfo.login",
+          role: "$userInfo.role",
+          email: "$userInfo.email",
+          is_active: "$userInfo.is_active",
+          createdAt: "$userInfo.createdAt",
+        },
+      },
+
       { $sort: sortStage },
+
       { $skip: skip },
       { $limit: limit },
     ];
 
     const infos = await Info.aggregate(pipeline);
-    const total = await Info.aggregate([...pipeline.slice(0, 3), { $count: "total" }]);
-    const totalPages = Math.ceil((total[0]?.total || 0) / limit);
+
+    const totalPipeline = [...pipeline.slice(0, 3), { $count: "total" }];
+    const totalResult = await Info.aggregate(totalPipeline);
+    const total = totalResult[0]?.total || 0;
+    const totalPages = Math.ceil(total / limit);
 
     return {
-      data: infos.map((info) => new FullInfoDto(info)),
+      data: infos.map((info) => ({
+        id: info.id,
+        login: info.login,
+        role: info.role,
+        surname: info.surname,
+        firstname: info.firstname,
+        patronymic: info.patronymic,
+        contact: info.contact,
+        email: info.email,
+        is_active: info.is_active,
+        createdAt: info.createdAt,
+      })),
       pagination: {
-        total: total[0]?.total || 0,
+        total,
         totalPages,
         currentPage: page,
         limit,
