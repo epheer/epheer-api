@@ -190,7 +190,7 @@ class ArtistService {
 
       {
         $addFields: {
-          id: "$_id",
+          id: "$userInfo._id",
           surname: "$userInfo.info.surname",
           firstname: "$userInfo.info.firstname",
           patronymic: "$userInfo.info.patronymic",
