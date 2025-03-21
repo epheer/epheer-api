@@ -105,15 +105,11 @@ class ArtistService {
   }
 
   async getArtistsByIds(artistIds) {
-    if (!Array.isArray(artistIds)) {
-      throw ApiError.BadRequest("Неверный формат списка ID артистов");
+    if (!Array.isArray(artistIds) || artistIds.length === 0) {
+      throw ApiError.BadRequest("Список ID артистов должен быть непустым массивом");
     }
 
-    if (artistIds.length === 0) {
-      return [];
-    }
-
-    const artists = await Artist.find({ _id: { $in: artistIds } })
+    const artists = await Artist.find({ user: { $in: artistIds } })
         .populate({
           path: "user",
           select: "-hash",
@@ -132,7 +128,31 @@ class ArtistService {
         })
         .exec();
 
-    return artists.map((artist) => new ArtistDto(artist));
+    if (artists.length === 0) {
+      throw ApiError.NotFoundError("Артисты не найдены");
+    }
+
+    return artists.map((artist) => {
+      const userInfo = artist.user?.info || {};
+      const managerInfo = artist.manager?.info || {};
+
+      return {
+        id: artist.user?._id || "",
+        stage_name: artist.stage_name || "",
+        surname: userInfo.surname || "",
+        firstname: userInfo.firstname || "",
+        patronymic: userInfo.patronymic || "",
+        contact: userInfo.contact || "",
+        manager: artist.manager
+            ? {
+              surname: managerInfo.surname || "",
+              firstname: managerInfo.firstname || "",
+              patronymic: managerInfo.patronymic || "",
+              contact: managerInfo.contact || "",
+            }
+            : {},
+      };
+    });
   }
 
   async getAllArtists(filterOptions, sortOptions, searchQuery, page, limit) {
