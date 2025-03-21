@@ -1,6 +1,7 @@
 const { User, Artist } = require("../../models");
 const ApiError = require("../../exceptions/api-error");
 const ArtistDto = require("../../dtos/label/artist.dto");
+const ManagerDto = require("../../dtos/label/manager.dto");
 
 const MAX_LIMIT = 50;
 
@@ -211,8 +212,7 @@ class ArtistService {
     ];
 
     const artists = await Artist.aggregate(pipeline);
-    const user = await User.findById("67d97539145a462aa20bcc08").populate("info");
-    console.log(user.info);
+    const formattedArtists = artists.map((artist) => new ArtistDto(artist));
 
     const totalPipeline = [...pipeline.slice(0, 6), { $count: "total" }];
     const totalResult = await Artist.aggregate(totalPipeline);
@@ -220,15 +220,7 @@ class ArtistService {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: artists.map((artist) => ({
-        id: artist.id,
-        stage_name: artist.stage_name,
-        surname: artist.surname,
-        firstname: artist.firstname,
-        patronymic: artist.patronymic,
-        contact: artist.contact,
-        manager: artist.manager,
-      })),
+      data: formattedArtists,
       pagination: {
         total,
         totalPages,

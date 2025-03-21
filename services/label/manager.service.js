@@ -67,34 +67,44 @@ class ManagerService {
 
   async getAllManagers(sortOptions, searchQuery, page, limit) {
     if (page < 1 || limit < 1) {
-      throw ApiError.BadRequest("Неверные параметры пагинации");
+      throw ApiError.BadRequest(`Неверные параметры пагинации: page=${page}, limit=${limit}`);
     }
 
     limit = Math.min(limit, MAX_LIMIT);
-
-    const matchStage = this.#buildFilter(searchQuery);
-    const sortStage = this.#buildSort(sortOptions);
     const skip = (page - 1) * limit;
 
+    // Фильтр для поиска пользователей с ролями root или manager
+    const userMatchStage = {
+      $match: {
+        role: { $in: ["root", "manager"] },
+      },
+    };
+
+    // Объединение данных из коллекции Info через поле user
+    const lookupStage = {
+      $lookup: {
+        from: "info", // Коллекция Info
+        localField: "_id", // Поле _id в User
+        foreignField: "user", // Поле user в Info
+        as: "info", // Результат объединения
+      },
+    };
+
+    // Развертывание массива info (предполагается, что связь один-к-одному)
+    const unwindStage = { $unwind: "$info" };
+
+    // Дополнительная фильтрация по searchQuery
+    const filterStage = this.#buildFilter(searchQuery);
+
+    // Сортировка
+    const sortStage = this.#buildSort(sortOptions);
+
+    // Построение pipeline
     const pipeline = [
-      {
-        $match: {
-          $or: [{ role: "root" }, { role: "manager" }],
-        },
-      },
-
-      {
-        $lookup: {
-          from: "info",
-          localField: "info",
-          foreignField: "_id",
-          as: "info",
-        },
-      },
-      { $unwind: "$info" },
-
-      { $match: matchStage },
-
+      userMatchStage,
+      lookupStage,
+      unwindStage,
+      { $match: filterStage },
       {
         $addFields: {
           id: "$_id",
@@ -104,29 +114,32 @@ class ManagerService {
           contact: "$info.contact",
         },
       },
-
       { $sort: sortStage },
-
       { $skip: skip },
       { $limit: limit },
     ];
 
     const managers = await User.aggregate(pipeline);
 
-    const totalPipeline = [...pipeline.slice(0, 4), { $count: "total" }];
+    if (managers.length === 0) {
+      throw ApiError.NotFoundError("Менеджеры не найдены");
+    }
+
+    const formattedManagers = managers.map((manager) => new ManagerDto(manager));
+
+    const totalPipeline = [
+      userMatchStage,
+      lookupStage,
+      unwindStage,
+      { $match: filterStage },
+      { $count: "total" },
+    ];
     const totalResult = await User.aggregate(totalPipeline);
     const total = totalResult[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: managers.map((manager) => ({
-        id: manager.id,
-        role: manager.role,
-        surname: manager.surname,
-        firstname: manager.firstname,
-        patronymic: manager.patronymic,
-        contact: manager.contact,
-      })),
+      data: formattedManagers,
       pagination: {
         total,
         totalPages,
