@@ -20,7 +20,7 @@ class ArtistController {
 
   async linkManager(req, res, next) {
     try {
-      const artistId = req.params.artistId;
+      const artistId = req.params.id;
       const { managerId } = req.body;
 
       const artist = await artistService.linkManager(artistId, managerId);
