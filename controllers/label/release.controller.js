@@ -6,7 +6,7 @@ class ReleaseController {
   async createRelease(req, res, next) {
     try {
       const artistId = req.params.id;
-      const artist = Artist.findOne({ user: artistId });
+      const artist = await Artist.findOne({ user: artistId });
       const stageName = artist.stage_name;
 
       const createdRelease = await releaseService.createRelease(
