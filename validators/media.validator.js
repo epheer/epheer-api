@@ -1,10 +1,12 @@
 const fs = require("fs");
 const wav = require("node-wav");
 const probe = require("probe-image-size");
+const sharp = require("sharp");
+const musicMetadata = require("music-metadata");
 
-const validateWavFile = async (filePath) => {
+const validateWavFile = async (fileBuffer) => {
   try {
-    const buffer = fs.readFileSync(filePath);
+    const buffer = fs.readFileSync(fileBuffer);
     const result = wav.decode(buffer);
     return (
       result.sampleRate >= 44100 &&
@@ -16,11 +18,12 @@ const validateWavFile = async (filePath) => {
   }
 };
 
-const validateFlacFile = async (filePath) => {
+const validateFlacFile = async (fileBuffer) => {
   try {
     const { FLACDecoder } = await import("@wasm-audio-decoders/flac");
-    const buffer = fs.readFileSync(filePath);
-    const decoder = new FLACDecoder();
+    const buffer = fs.readFileSync(fileBuffer);
+    const decoder = new
+    FLACDecoder();
     await decoder.decode(buffer);
 
     const { sampleRate, bitsPerSample } = decoder.getInfo();
@@ -30,21 +33,21 @@ const validateFlacFile = async (filePath) => {
   }
 };
 
-const validateAudioFile = async (filePath) => {
-  const ext = filePath.split(".").pop().toLowerCase();
+const validateAudioFile = async (fileBuffer) => {
+  const metadata = await musicMetadata.parseFile(fileBuffer);
 
-  if (ext === "wav") {
-    return await validateWavFile(filePath);
-  } else if (ext === "flac") {
-    return await validateFlacFile(filePath);
+  if (metadata.format.container === "wav") {
+    return await validateWavFile(fileBuffer);
+  } else if (metadata.format.container === "flac") {
+    return await validateFlacFile(fileBuffer);
   }
 
   return false;
 };
 
-const validateJpgFile = async (filePath) => {
+const validateJpgFile = async (fileBuffer) => {
   try {
-    const buffer = fs.readFileSync(filePath);
+    const buffer = fs.readFileSync(fileBuffer);
     const result = await probe(buffer);
     return (
       result &&
@@ -57,11 +60,11 @@ const validateJpgFile = async (filePath) => {
   }
 };
 
-const validateImageFile = async (filePath) => {
-  const ext = filePath.split(".").pop().toLowerCase();
+const validateImageFile = async (fileBuffer) => {
+  const metadata = await sharp(fileBuffer).metadata();
 
-  if (ext === "jpg") {
-    return await validateJpgFile(filePath);
+  if (['jpeg', 'jpg'].includes(metadata.format)) {
+    return await validateJpgFile(fileBuffer);
   }
 
   return false;

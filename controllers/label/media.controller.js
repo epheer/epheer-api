@@ -22,16 +22,14 @@ class MediaController {
     try {
       const artistId = req.params.id;
       const { releaseId } = req.params;
-      const { trackNumber, trackTitle, fileType } = req.body;
+      const { trackNumber, trackTitle } = req.body;
       const fileBufferOrStream = req.file.buffer;
 
       if (
         !trackNumber ||
         typeof trackNumber !== "number" ||
         !trackTitle ||
-        typeof trackTitle !== "string" ||
-        !fileType ||
-        !["wav", "flac"].includes(fileType)
+        typeof trackTitle !== "string"
       ) {
         throw new ApiError.BadRequest("Неверные параметры трека");
       }
@@ -41,8 +39,7 @@ class MediaController {
         releaseId,
         trackNumber,
         trackTitle,
-        fileBufferOrStream,
-        fileType
+        fileBufferOrStream
       );
 
       return res.status(HTTP_STATUS.CREATED).json({

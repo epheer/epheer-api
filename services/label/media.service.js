@@ -67,10 +67,6 @@ class MediaService {
   ) {
     const { parseBuffer } = await import("music-metadata");
 
-    if (!["wav", "flac"].includes(fileType)) {
-      throw new ApiError.BadRequest("Недопустимый формат файла трека.");
-    }
-
     let fileBuffer;
     if (fileBufferOrStream instanceof Buffer) {
       fileBuffer = fileBufferOrStream;
